@@ -147,7 +147,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     return res.status(400).json({ success: false });
   }
 
-  const fileName = `${from}-${Date.now()}-${req.file.originalname}`;
+  const fileName = `${from}-${Date.now()}.${req.file.originalname.split('.').pop()}`;
   console.log('파일 업로드 시작:', fileName);
 
   const { error } = await supabase.storage
@@ -185,7 +185,7 @@ app.post('/upload/profile', upload.single('profile'), async (req, res) => {
     return res.status(400).json({ success: false });
   }
 
-  const fileName = `${userId}-${Date.now()}-${req.file.originalname}`;
+  const fileName = `${userId}-${Date.now()}.${req.file.originalname.split('.').pop()}`;
   console.log('파일 업로드 시작:', fileName);
 
   const { error } = await supabase.storage
@@ -215,7 +215,7 @@ app.post('/upload/voice', upload.single('voice'), async (req, res) => {
     return res.status(400).json({ success: false });
   }
 
-  const fileName = `${from}-${Date.now()}-voice.webm`;
+  const fileName = `${from}-${Date.now()}.webm`;
   console.log('파일 업로드 시작:', fileName);
 
   const { error } = await supabase.storage
