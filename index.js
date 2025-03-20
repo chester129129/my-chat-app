@@ -18,6 +18,11 @@ const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+// 한글을 영어로 변환하는 함수
+const sanitizeFileName = (name) => {
+  return name.replace(/[^a-zA-Z0-9]/g, ''); // 영어와 숫자만 남기기
+};
+
 // 로그인
 app.post('/login', async (req, res) => {
   const { password, userId } = req.body;
@@ -25,7 +30,12 @@ app.post('/login', async (req, res) => {
   if (password === process.env.PASSWORD) {
     const { data: user } = await supabase.from('users').select('*').eq('userId', userId).single();
     if (!user) {
-      await supabase.from('users').insert({ userId, friends: [], online: true, profilePic: 'https://fpliyvgivfbfwobhiqbz.supabase.co/storage/v1/object/public/profile-pics/default-profile.png' });
+      await supabase.from('users').insert({ 
+        userId, 
+        friends: [], 
+        online: true, 
+        profilePic: 'https://fpliyvgivfbfwobhiqbz.supabase.co/storage/v1/object/public/profile-pics/default-profile.png' 
+      });
     } else {
       await supabase.from('users').update({ online: true }).eq('userId', userId);
     }
@@ -147,7 +157,8 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     return res.status(400).json({ success: false });
   }
 
-  const fileName = `test-${from}-${Date.now()}.${req.file.originalname.split('.').pop()}`;
+  const sanitizedFrom = sanitizeFileName(from); // 한글 제거
+  const fileName = `test-${sanitizedFrom}-${Date.now()}.${req.file.originalname.split('.').pop()}`;
   console.log('파일 업로드 시작:', fileName);
 
   const { error } = await supabase.storage
@@ -185,7 +196,8 @@ app.post('/upload/profile', upload.single('profile'), async (req, res) => {
     return res.status(400).json({ success: false });
   }
 
-  const fileName = `test-${userId}-${Date.now()}.${req.file.originalname.split('.').pop()}`;
+  const sanitizedUserId = sanitizeFileName(userId); // 한글 제거
+  const fileName = `test-${sanitizedUserId}-${Date.now()}.${req.file.originalname.split('.').pop()}`;
   console.log('파일 업로드 시작:', fileName);
 
   const { error } = await supabase.storage
@@ -215,7 +227,8 @@ app.post('/upload/voice', upload.single('voice'), async (req, res) => {
     return res.status(400).json({ success: false });
   }
 
-  const fileName = `test-${from}-${Date.now()}.webm`;
+  const sanitizedFrom = sanitizeFileName(from); // 한글 제거
+  const fileName = `test-${sanitizedFrom}-${Date.now()}.webm`;
   console.log('파일 업로드 시작:', fileName);
 
   const { error } = await supabase.storage
