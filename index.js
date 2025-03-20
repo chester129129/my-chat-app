@@ -11,6 +11,7 @@ app.use(express.static('public'));
 
 // Supabase 클라이언트 설정
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+console.log('Supabase 연결 테스트:', supabase ? '성공' : '실패');
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
@@ -38,21 +39,31 @@ app.post('/login', async (req, res) => {
 app.post('/logout', async (req, res) => {
   const { userId } = req.body;
   const { error } = await supabase.from('users').update({ online: false }).eq('userId', userId);
-  if (error) return res.status(500).json({ success: false });
+  if (error) {
+    console.log('로그아웃 에러:', error);
+    return res.status(500).json({ success: false });
+  }
   res.json({ success: true });
 });
 
 // 접속 중인 사용자 목록
 app.get('/users', async (req, res) => {
   const { data, error } = await supabase.from('users').select('userId, profilePic').eq('online', true);
-  if (error) return res.status(500).json([]);
+  if (error) {
+    console.log('유저 가져오기 에러:', error);
+    return res.status(500).json([]);
+  }
+  console.log('가져온 유저:', data); // 데이터 확인
   res.json(data.map(u => ({ userId: u.userId, profilePic: u.profilePic || '/uploads/default-profile.png' })));
 });
 
 // 모든 사용자 정보 가져오기
 app.get('/all-users', async (req, res) => {
   const { data, error } = await supabase.from('users').select('userId, profilePic');
-  if (error) return res.status(500).json([]);
+  if (error) {
+    console.log('모든 유저 가져오기 에러:', error);
+    return res.status(500).json([]);
+  }
   res.json(data.map(u => ({ userId: u.userId, profilePic: u.profilePic || '/uploads/default-profile.png' })));
 });
 
@@ -66,7 +77,10 @@ app.post('/friends', async (req, res) => {
     res.json({ success: true, friendId });
   } else if (!user.friends.includes(friendId)) {
     const { error } = await supabase.from('users').update({ friends: [...user.friends, friendId] }).eq('userId', userId);
-    if (error) return res.status(500).json({ success: false });
+    if (error) {
+      console.log('친구 추가 에러:', error);
+      return res.status(500).json({ success: false });
+    }
     res.json({ success: true, friendId });
   } else {
     res.json({ success: false, message: '이미 친구임 / Ya es amigo' });
@@ -79,7 +93,10 @@ app.delete('/friends', async (req, res) => {
   const { data: user } = await supabase.from('users').select('friends').eq('userId', userId).single();
   const updatedFriends = user.friends.filter(f => f !== friendId);
   const { error } = await supabase.from('users').update({ friends: updatedFriends }).eq('userId', userId);
-  if (error) return res.status(500).json({ success: false });
+  if (error) {
+    console.log('친구 삭제 에러:', error);
+    return res.status(500).json({ success: false });
+  }
   res.json({ success: true, friendId });
 });
 
@@ -87,7 +104,10 @@ app.delete('/friends', async (req, res) => {
 app.get('/friends/:userId', async (req, res) => {
   const userId = req.params.userId;
   const { data: user, error } = await supabase.from('users').select('friends').eq('userId', userId).single();
-  if (error || !user) return res.json([]);
+  if (error || !user) {
+    console.log('친구 목록 에러:', error);
+    return res.json([]);
+  }
   res.json(user.friends || []);
 });
 
@@ -95,7 +115,10 @@ app.get('/friends/:userId', async (req, res) => {
 app.get('/rooms/:userId', async (req, res) => {
   const userId = req.params.userId;
   const { data: messages, error } = await supabase.from('messages').select('*').ilike('room', `*${userId}*`).order('timestamp', { ascending: false });
-  if (error) return res.status(500).json([]);
+  if (error) {
+    console.log('채팅방 목록 에러:', error);
+    return res.status(500).json([]);
+  }
   const uniqueRooms = [...new Set(messages.map(m => m.room))];
   const roomData = uniqueRooms.map(roomId => {
     const lastMessage = messages.find(m => m.room === roomId);
@@ -108,7 +131,10 @@ app.get('/rooms/:userId', async (req, res) => {
 // 전체 채팅 기록 가져오기
 app.get('/all-chat', async (req, res) => {
   const { data, error } = await supabase.from('messages').select('*').eq('room', 'all-chat').order('timestamp', { ascending: true });
-  if (error) return res.status(500).json([]);
+  if (error) {
+    console.log('전체 채팅 가져오기 에러:', error);
+    return res.status(500).json([]);
+  }
   res.json(data);
 });
 
@@ -117,9 +143,15 @@ app.get('/chat/:roomId/:userId', async (req, res) => {
   const roomId = req.params.roomId;
   const userId = req.params.userId;
   const { data: messages, error: msgError } = await supabase.from('messages').select('*').eq('room', roomId).order('timestamp', { ascending: true });
-  if (msgError) return res.status(500).json([]);
+  if (msgError) {
+    console.log('채팅 기록 가져오기 에러:', msgError);
+    return res.status(500).json([]);
+  }
   const { data: deleted, error: delError } = await supabase.from('deleted_messages').select('messageId').eq('userId', userId).eq('roomId', roomId);
-  if (delError) return res.status(500).json([]);
+  if (delError) {
+    console.log('삭제된 메시지 가져오기 에러:', delError);
+    return res.status(500).json([]);
+  }
   const deletedIds = deleted.map(d => d.messageId);
   const filteredMessages = messages.filter(m => !deletedIds.includes(m.id));
   await supabase.from('messages').update({ read: true }).eq('room', roomId).eq('read', false);
@@ -138,6 +170,7 @@ app.post('/chat', async (req, res) => {
     translatedKr = lines[0].replace('한국어: ', '').trim();
     translatedEs = lines[1] ? lines[1].replace('스페인어: ', '').trim() : 'Error en la traducción';
   } catch (error) {
+    console.log('번역 에러:', error);
     translatedKr = '번역 실패 / Traducción fallida';
     translatedEs = 'Error en la traducción';
   }
@@ -145,7 +178,10 @@ app.post('/chat', async (req, res) => {
   const fullMessage = `🇰🇷 ${translatedKr}\n🇪🇸 ${translatedEs}`;
   const messageData = { room: roomId, from, message: fullMessage, type: 'text', timestamp: new Date(), read: false };
   const { data, error } = await supabase.from('messages').insert(messageData).select().single();
-  if (error) return res.status(500).json({ success: false });
+  if (error) {
+    console.log('메시지 삽입 에러:', error);
+    return res.status(500).json({ success: false });
+  }
   res.json({ success: true, message: data });
 });
 
@@ -157,12 +193,18 @@ app.post('/upload', upload.single('file'), async (req, res) => {
   const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
     contentType: req.file.mimetype,
   });
-  if (uploadError) return res.status(500).json({ success: false });
+  if (uploadError) {
+    console.log('파일 업로드 에러:', uploadError);
+    return res.status(500).json({ success: false });
+  }
   const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
   const fileUrl = urlData.publicUrl;
   const messageData = { room: roomId, from, message: fileUrl, type: req.file.mimetype.startsWith('image') ? 'image' : 'video', timestamp: new Date(), read: false };
   const { data, error } = await supabase.from('messages').insert(messageData).select().single();
-  if (error) return res.status(500).json({ success: false });
+  if (error) {
+    console.log('메시지 삽입 에러:', error);
+    return res.status(500).json({ success: false });
+  }
   res.json({ success: true, message: data });
 });
 
@@ -174,11 +216,17 @@ app.post('/upload/profile', upload.single('profile'), async (req, res) => {
   const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
     contentType: req.file.mimetype,
   });
-  if (uploadError) return res.status(500).json({ success: false });
+  if (uploadError) {
+    console.log('프로필 사진 업로드 에러:', uploadError);
+    return res.status(500).json({ success: false });
+  }
   const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
   const fileUrl = urlData.publicUrl;
   const { error } = await supabase.from('users').update({ profilePic: fileUrl }).eq('userId', userId);
-  if (error) return res.status(500).json({ success: false });
+  if (error) {
+    console.log('프로필 사진 업데이트 에러:', error);
+    return res.status(500).json({ success: false });
+  }
   res.json({ success: true, profilePic: fileUrl });
 });
 
@@ -190,12 +238,18 @@ app.post('/upload/voice', upload.single('voice'), async (req, res) => {
   const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
     contentType: req.file.mimetype,
   });
-  if (uploadError) return res.status(500).json({ success: false });
+  if (uploadError) {
+    console.log('음성 업로드 에러:', uploadError);
+    return res.status(500).json({ success: false });
+  }
   const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
   const fileUrl = urlData.publicUrl;
   const messageData = { room: roomId, from, message: fileUrl, type: 'voice', timestamp: new Date(), read: false };
   const { data, error } = await supabase.from('messages').insert(messageData).select().single();
-  if (error) return res.status(500).json({ success: false });
+  if (error) {
+    console.log('음성 메시지 삽입 에러:', error);
+    return res.status(500).json({ success: false });
+  }
   res.json({ success: true, message: data });
 });
 
@@ -204,10 +258,16 @@ app.post('/chat/delete/:roomId/:userId', async (req, res) => {
   const roomId = req.params.roomId;
   const userId = req.params.userId;
   const { data: messages, error: msgError } = await supabase.from('messages').select('id').eq('room', roomId);
-  if (msgError) return res.status(500).json({ success: false });
+  if (msgError) {
+    console.log('채팅 삭제 - 메시지 가져오기 에러:', msgError);
+    return res.status(500).json({ success: false });
+  }
   const deletedEntries = messages.map(m => ({ userId, roomId, messageId: m.id }));
   const { error } = await supabase.from('deleted_messages').insert(deletedEntries);
-  if (error) return res.status(500).json({ success: false });
+  if (error) {
+    console.log('채팅 삭제 에러:', error);
+    return res.status(500).json({ success: false });
+  }
   res.json({ success: true });
 });
 

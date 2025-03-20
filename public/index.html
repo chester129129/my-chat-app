@@ -205,6 +205,7 @@
       const data = await res.json();
       if (data.success) {
         myId = userId;
+        console.log('내 아이디:', myId); // 디버깅용
         document.getElementById('login').style.display = 'none';
         document.getElementById('main').style.display = 'block';
         updateUserList();
@@ -322,7 +323,12 @@
       const users = await res.json();
       const me = users.find(u => u.userId === myId);
       const profileDiv = document.getElementById('settings-profile');
-      profileDiv.innerHTML = `<img src="${me.profilePic}" class="profile-pic"><span>${myId}</span>`;
+      if (me) {
+        profileDiv.innerHTML = `<img src="${me.profilePic}" class="profile-pic"><span>${myId}</span>`;
+      } else {
+        profileDiv.innerHTML = `<span>유저를 못 찾았어요: ${myId}</span>`;
+        console.log('내 정보 없음:', users); // 디버깅용
+      }
     }
 
     async function startChat(roomId) {
@@ -480,7 +486,7 @@
         alert('프로필 사진이 변경되었어요! / ¡Foto de perfil cambiada!');
         updateUserList();
         updateFriendsList();
-        updateRoomList(); // 채팅방 목록도 업데이트
+        updateRoomList();
         updateSettingsProfile();
         loadChatHistory();
         loadAllChat();
