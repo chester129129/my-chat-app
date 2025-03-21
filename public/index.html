@@ -672,7 +672,6 @@
 
     async function clearRoom() {
       if (!currentRoom || !confirm('대화 기록을 지울까요? / ¿Borrar historial de chat?')) return;
-      // 폴링 중지
       if (pollingInterval) clearInterval(pollingInterval);
       const res = await fetch(`/chat/delete/${currentRoom}/${myId}`, {
         method: 'POST',
@@ -680,13 +679,10 @@
       });
       const data = await res.json();
       if (data.success) {
-        // 즉시 화면 갱신
         await loadChatHistory();
-        // 폴링 재시작
         pollingInterval = setInterval(loadChatHistory, 2000);
       } else {
-        alert('대화 지우기 실패 / No se pudo borrar el chat');
-        // 실패 시에도 폴링 재시작
+        alert(data.message || '대화 지우기 실패 / No se pudo borrar el chat');
         pollingInterval = setInterval(loadChatHistory, 2000);
       }
     }
@@ -746,7 +742,7 @@
     function loadSound() {
       const sound = localStorage.getItem('notificationSound') || 'soft';
       const audio = document.getElementById('notification');
-      if (sound === 'soft') audio.src = 'https://www.myinstants.com/media/sounds/notification.mp3';
+      if (sound === 'soft') audio.src = 'https://www.myinstants.com/media/sounds/soft-chime.mp3';
       else if (sound === 'bell') audio.src = 'https://www.myinstants.com/media/sounds/bell.mp3';
       else if (sound === 'chime') audio.src = 'https://www.myinstants.com/media/sounds/chime.mp3';
     }

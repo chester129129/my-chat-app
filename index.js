@@ -158,7 +158,6 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   const userId = req.params.userId;
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
 
-  // 메시지와 삭제된 메시지를 동시에 가져오기 (최신 데이터 보장)
   const [messagesRes, deletedRes] = await Promise.all([
     supabase
       .from('messages')
@@ -187,7 +186,6 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   const deletedIds = deleted.map(d => d.messageId);
   const filteredMessages = messages.filter(m => !deletedIds.includes(m.id));
 
-  // 읽음 상태 업데이트
   await supabase.from('messages').update({ read: true }).eq('room', roomId).eq('read', false);
 
   res.json(filteredMessages);
@@ -298,22 +296,34 @@ app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
   const roomId = req.params.roomId;
   const userId = req.params.userId;
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
+
+  // 메시지 목록 가져오기
   const { data: messages, error: msgError } = await supabase.from('messages').select('id').eq('room', roomId);
   if (msgError) {
     console.log('채팅 삭제 - 메시지 가져오기 에러:', msgError);
-    return res.status(500).json({ success: false });
+    return res.status(500).json({ success: false, message: '메시지 가져오기 실패 / Error al obtener mensajes' });
   }
+
+  if (!messages || messages.length === 0) {
+    console.log('삭제할 메시지가 없음 / No hay mensajes para eliminar', { roomId, userId });
+    return res.json({ success: true, message: '삭제할 메시지가 없음 / No hay mensajes para eliminar' });
+  }
+
+  // 삭제된 메시지 항목 생성
   const deletedEntries = messages.map(m => ({ userId, roomId, messageId: m.id }));
-  const { error } = await supabase.from('deleted_messages').insert(deletedEntries);
-  if (error) {
-    console.log('채팅 삭제 에러:', error);
-    return res.status(500).json({ success: false });
+  const { error: insertError } = await supabase.from('deleted_messages').insert(deletedEntries);
+  if (insertError) {
+    console.log('채팅 삭제 - 삽입 에러:', insertError);
+    return res.status(500).json({ success: false, message: '삭제 기록 삽입 실패 / Error al insertar registro de eliminación', error: insertError.message });
   }
+
+  console.log('삭제 기록 삽입 성공 / Registro de eliminación insertado', { roomId, userId, count: deletedEntries.length });
   res.json({ success: true });
 });
 
 async function manageStorage() {
   const { data: messages } = await supabase.from('messages').select('id, message, type, timestamp');
+  const { data: deletedMessages } = await supabase.from('deleted_messages').select('id, timestamp'); // deleted_messages 데이터 가져오기
   const { data: files } = await supabase.storage.from('uploads').list();
 
   let totalSize = 0;
@@ -323,6 +333,11 @@ async function manageStorage() {
       totalSize += file ? file.metadata.size : 0;
     }
     totalSize += new Blob([m.message]).size;
+  });
+
+  // deleted_messages 데이터 크기 추가
+  deletedMessages.forEach(dm => {
+    totalSize += new Blob([JSON.stringify(dm)]).size;
   });
 
   const maxSize = 400 * 1024 * 1024; // 400MB
@@ -336,16 +351,22 @@ async function manageStorage() {
         const fileName = msg.message.split('/').pop();
         await supabase.storage.from('uploads').remove([fileName]);
       }
-      sizeToFree -= new Blob([m.message]).size;
+      sizeToFree -= new Blob([msg.message]).size;
     }
   }
 
+  // 7일 지난 messages와 deleted_messages 삭제
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const oldMessages = messages.filter(m => new Date(m.timestamp) < sevenDaysAgo && m.type !== 'text');
   for (const msg of oldMessages) {
     const fileName = msg.message.split('/').pop();
     await supabase.storage.from('uploads').remove([fileName]);
     await supabase.from('messages').delete().eq('id', msg.id);
+  }
+
+  const oldDeletedMessages = deletedMessages.filter(dm => new Date(dm.timestamp) < sevenDaysAgo);
+  for (const dm of oldDeletedMessages) {
+    await supabase.from('deleted_messages').delete().eq('id', dm.id);
   }
 }
 
