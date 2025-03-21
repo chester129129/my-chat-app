@@ -784,9 +784,9 @@
     function loadSound() {
       const sound = localStorage.getItem('notificationSound') || 'soft';
       const audio = document.getElementById('notification');
-      if (sound === 'soft') audio.src = 'https://cdn.pixabay.com/audio/2023/08/07/audio_6f4b0e3e9b.mp3';
+      if (sound === 'soft') audio.src = 'https://cdn.pixabay.com/audio/2024/11/29/audio_0b4f12f995.mp3';
       else if (sound === 'bell') audio.src = 'https://www.myinstants.com/media/sounds/bell.mp3';
-      else if (sound === 'chime') audio.src = 'https://cdn.pixabay.com/audio/2023/08/07/audio_8e1b0f4c2d.mp3';
+      else if (sound === 'chime') audio.src = 'https://cdn.pixabay.com/audio/2024/11/29/audio_538916a9ed.mp3';
     }
 
     function setSound(type) {
@@ -797,9 +797,9 @@
 
     function previewSound(type) {
       const audio = document.getElementById('notification');
-      if (type === 'soft') audio.src = 'https://cdn.pixabay.com/audio/2023/08/07/audio_6f4b0e3e9b.mp3';
+      if (type === 'soft') audio.src = 'https://cdn.pixabay.com/audio/2024/11/29/audio_0b4f12f995.mp3';
       else if (type === 'bell') audio.src = 'https://www.myinstants.com/media/sounds/bell.mp3';
-      else if (type === 'chime') audio.src = 'https://cdn.pixabay.com/audio/2023/08/07/audio_8e1b0f4c2d.mp3';
+      else if (type === 'chime') audio.src = 'https://cdn.pixabay.com/audio/2024/11/29/audio_538916a9ed.mp3';
       audio.play().catch(err => console.log('미리듣기 소리 재생 실패:', err));
     }
 
