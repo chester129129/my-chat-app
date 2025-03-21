@@ -11,6 +11,9 @@ app.use(express.static('public'));
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 console.log('Supabase 연결 테스트:', supabase ? '성공' : '실패');
+if (!supabase) {
+  console.error('Supabase 연결 실패: 환경 변수를 확인하세요 (SUPABASE_URL, SUPABASE_ANON_KEY)');
+}
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
@@ -40,11 +43,23 @@ app.post('/login', async (req, res) => {
   if (password !== process.env.PASSWORD) {
     return res.status(401).json({ success: false, message: '비밀번호가 틀렸어! / ¡Contraseña incorrecta!' });
   }
-  const { data: user } = await supabase.from('users').select('*').eq('userId', userId).single();
+  const { data: user, error } = await supabase.from('users').select('*').eq('userId', userId).single();
+  if (error) {
+    console.log('로그인 - 유저 조회 에러:', error);
+    return res.status(500).json({ success: false, message: '서버 에러 / Error del servidor' });
+  }
   if (!user) {
-    await supabase.from('users').insert({ userId, friends: [], online: true, profilePic: '/uploads/default-profile.png' });
+    const { error: insertError } = await supabase.from('users').insert({ userId, friends: [], online: true, profilePic: '/uploads/default-profile.png' });
+    if (insertError) {
+      console.log('로그인 - 유저 생성 에러:', insertError);
+      return res.status(500).json({ success: false, message: '유저 생성 실패 / Error al crear usuario' });
+    }
   } else {
-    await supabase.from('users').update({ online: true }).eq('userId', userId);
+    const { error: updateError } = await supabase.from('users').update({ online: true }).eq('userId', userId);
+    if (updateError) {
+      console.log('로그인 - 유저 업데이트 에러:', updateError);
+      return res.status(500).json({ success: false, message: '유저 업데이트 실패 / Error al actualizar usuario' });
+    }
   }
   const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '1h' });
   res.json({ success: true, userId, token });
@@ -174,26 +189,29 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   const { data: messages, error: msgError } = messagesRes;
   if (msgError) {
     console.log('채팅 기록 가져오기 에러:', msgError);
-    return res.status(500).json([]);
+    return res.status(500).json({ success: false, message: '채팅 기록 가져오기 실패 / Error al obtener historial de chat' });
   }
 
   const { data: deleted, error: delError } = deletedRes;
   if (delError) {
     console.log('삭제된 메시지 가져오기 에러:', delError);
-    return res.status(500).json([]);
+    return res.status(500).json({ success: false, message: '삭제된 메시지 가져오기 실패 / Error al obtener mensajes eliminados' });
   }
 
   const deletedIds = deleted.map(d => d.messageId);
   const filteredMessages = messages.filter(m => !deletedIds.includes(m.id));
 
-  await supabase.from('messages').update({ read: true }).eq('room', roomId).eq('read', false);
+  const { error: updateError } = await supabase.from('messages').update({ read: true }).eq('room', roomId).eq('read', false);
+  if (updateError) {
+    console.log('읽음 상태 업데이트 에러:', updateError);
+  }
 
   res.json(filteredMessages);
 });
 
 app.post('/chat', verifyUser, async (req, res) => {
   const { roomId, from, message } = req.body;
-  if (!roomId || !from || !message) return res.status(400).json({ success: false });
+  if (!roomId || !from || !message) return res.status(400).json({ success: false, message: '필수 필드가 누락됨 / Faltan campos requeridos' });
   if (from !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
 
   let finalMessage = message;
@@ -216,9 +234,12 @@ app.post('/chat', verifyUser, async (req, res) => {
   const { data, error } = await supabase.from('messages').insert(messageData).select().single();
   if (error) {
     console.log('메시지 삽입 에러:', error);
-    return res.status(500).json({ success: false });
+    return res.status(500).json({ success: false, message: '메시지 삽입 실패 / Error al insertar mensaje' });
   }
-  await manageStorage();
+
+  // manageStorage는 비동기적으로 실행하고, 응답은 바로 반환
+  manageStorage().catch(err => console.log('manageStorage 에러:', err));
+
   res.json({ success: true, message: data });
 });
 
@@ -309,8 +330,13 @@ app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
     return res.json({ success: true, message: '삭제할 메시지가 없음 / No hay mensajes para eliminar' });
   }
 
-  // 삭제된 메시지 항목 생성
-  const deletedEntries = messages.map(m => ({ userId, roomId, messageId: m.id }));
+  // 삭제된 메시지 항목 생성 (timestamp 추가)
+  const deletedEntries = messages.map(m => ({
+    userId,
+    roomId,
+    messageId: m.id,
+    timestamp: new Date().toISOString() // timestamp 명시적으로 추가
+  }));
   const { error: insertError } = await supabase.from('deleted_messages').insert(deletedEntries);
   if (insertError) {
     console.log('채팅 삭제 - 삽입 에러:', insertError);
@@ -322,9 +348,23 @@ app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
 });
 
 async function manageStorage() {
-  const { data: messages } = await supabase.from('messages').select('id, message, type, timestamp');
-  const { data: deletedMessages } = await supabase.from('deleted_messages').select('id, timestamp'); // deleted_messages 데이터 가져오기
-  const { data: files } = await supabase.storage.from('uploads').list();
+  const { data: messages, error: msgError } = await supabase.from('messages').select('id, message, type, timestamp');
+  if (msgError) {
+    console.log('manageStorage - 메시지 가져오기 에러:', msgError);
+    return;
+  }
+
+  const { data: deletedMessages, error: delError } = await supabase.from('deleted_messages').select('id, timestamp');
+  if (delError) {
+    console.log('manageStorage - 삭제된 메시지 가져오기 에러:', delError);
+    return;
+  }
+
+  const { data: files, error: fileError } = await supabase.storage.from('uploads').list();
+  if (fileError) {
+    console.log('manageStorage - 파일 목록 가져오기 에러:', fileError);
+    return;
+  }
 
   let totalSize = 0;
   messages.forEach(m => {
@@ -335,7 +375,6 @@ async function manageStorage() {
     totalSize += new Blob([m.message]).size;
   });
 
-  // deleted_messages 데이터 크기 추가
   deletedMessages.forEach(dm => {
     totalSize += new Blob([JSON.stringify(dm)]).size;
   });
@@ -355,7 +394,6 @@ async function manageStorage() {
     }
   }
 
-  // 7일 지난 messages와 deleted_messages 삭제
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const oldMessages = messages.filter(m => new Date(m.timestamp) < sevenDaysAgo && m.type !== 'text');
   for (const msg of oldMessages) {

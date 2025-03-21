@@ -394,37 +394,45 @@
 
     async function loadChatHistory() {
       if (!currentRoom) return;
-      const resMessages = await fetch(`/chat/${currentRoom}/${myId}`, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Cache-Control': 'no-cache'
+      try {
+        const res = await fetch(`/chat/${currentRoom}/${myId}`, {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Cache-Control': 'no-cache'
+          }
+        });
+        if (!res.ok) {
+          throw new Error(`서버 응답 실패: ${res.status}`);
         }
-      });
-      const messages = await resMessages.json();
-      const resUsers = await fetch('/all-users', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const allUsers = await resUsers.json();
-      const chat = document.getElementById('chat-messages');
-      chat.innerHTML = ''; // 화면 초기화
-      messages.forEach(data => {
-        const user = allUsers.find(u => u.userId === data.from);
-        const profilePic = user ? user.profilePic : '/uploads/default-profile.png';
-        const p = document.createElement('p');
-        p.className = 'message';
-        const timestamp = new Date(data.timestamp).toLocaleString('ko-KR');
-        if (data.type === 'text') {
-          p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> ${data.message.replace(/\n/g, '<br>')} <span class="timestamp">${timestamp}</span>`;
-        } else if (data.type === 'image') {
-          p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <img src="${data.message}" class="message-media"> <span class="timestamp">${timestamp}</span>`;
-        } else if (data.type === 'video') {
-          p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <video src="${data.message}" controls class="message-media"></video> <span class="timestamp">${timestamp}</span>`;
-        } else if (data.type === 'voice') {
-          p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <audio src="${data.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio> <span class="timestamp">${timestamp}</span>`;
-        }
-        chat.appendChild(p);
-      });
-      chat.scrollTop = chat.scrollHeight;
+        const messages = await res.json();
+        const resUsers = await fetch('/all-users', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const allUsers = await resUsers.json();
+        const chat = document.getElementById('chat-messages');
+        chat.innerHTML = ''; // 화면 초기화
+        messages.forEach(data => {
+          const user = allUsers.find(u => u.userId === data.from);
+          const profilePic = user ? user.profilePic : '/uploads/default-profile.png';
+          const p = document.createElement('p');
+          p.className = 'message';
+          const timestamp = new Date(data.timestamp).toLocaleString('ko-KR');
+          if (data.type === 'text') {
+            p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> ${data.message.replace(/\n/g, '<br>')} <span class="timestamp">${timestamp}</span>`;
+          } else if (data.type === 'image') {
+            p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <img src="${data.message}" class="message-media"> <span class="timestamp">${timestamp}</span>`;
+          } else if (data.type === 'video') {
+            p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <video src="${data.message}" controls class="message-media"></video> <span class="timestamp">${timestamp}</span>`;
+          } else if (data.type === 'voice') {
+            p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <audio src="${data.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio> <span class="timestamp">${timestamp}</span>`;
+          }
+          chat.appendChild(p);
+        });
+        chat.scrollTop = chat.scrollHeight;
+      } catch (error) {
+        console.error('채팅 기록 로드 실패:', error);
+        alert('채팅 기록을 불러오지 못했어요. 서버 상태를 확인해주세요. / No se pudo cargar el historial de chat. Por favor, verifica el estado del servidor.');
+      }
     }
 
     async function loadAllChat() {
@@ -461,19 +469,29 @@
     async function sendMessage() {
       const message = document.getElementById('message').value;
       if (!currentRoom || !message) return;
-      const res = await fetch('/chat', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ roomId: currentRoom, from: myId, message })
-      });
-      const data = await res.json();
-      if (data.success) {
-        document.getElementById('message').value = '';
-        loadChatHistory();
-        if (soundEnabled) document.getElementById('notification').play();
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ roomId: currentRoom, from: myId, message })
+        });
+        if (!res.ok) {
+          throw new Error(`서버 응답 실패: ${res.status}`);
+        }
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('message').value = '';
+          loadChatHistory();
+          if (soundEnabled) document.getElementById('notification').play();
+        } else {
+          alert(data.message || '메시지 전송 실패 / Error al enviar mensaje');
+        }
+      } catch (error) {
+        console.error('메시지 전송 실패:', error);
+        alert('메시지를 보내지 못했어요. 서버 상태를 확인해주세요. / No se pudo enviar el mensaje. Por favor, verifica el estado del servidor.');
       }
     }
 
