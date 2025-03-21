@@ -195,8 +195,14 @@
         <button onclick="toggleSound()">소리 켜기/끄기 / Activar/Desactivar sonido</button>
         <p>소리 선택 / Seleccionar sonido:</p>
         <button onclick="setSound('soft')">부드러운 소리 / Sonido suave</button>
+        <button onclick="previewSound('soft')">미리듣기 / Escuchar</button>
+        <br>
         <button onclick="setSound('bell')">종소리 / Campana</button>
+        <button onclick="previewSound('bell')">미리듣기 / Escuchar</button>
+        <br>
         <button onclick="setSound('chime')">차임 소리 / Carillón</button>
+        <button onclick="previewSound('chime')">미리듣기 / Escuchar</button>
+        <br>
         <button onclick="backToSettings()">뒤로가기 / Volver</button>
       </div>
       <div id="credits-settings" class="settings-sub" style="display: none;">
@@ -485,7 +491,10 @@
         if (data.success) {
           document.getElementById('message').value = '';
           loadChatHistory();
-          if (soundEnabled) document.getElementById('notification').play();
+          if (soundEnabled) {
+            const audio = document.getElementById('notification');
+            audio.play().catch(err => console.log('알림 소리 재생 실패:', err));
+          }
         } else {
           alert(data.message || '메시지 전송 실패 / Error al enviar mensaje');
         }
@@ -510,7 +519,10 @@
       if (data.success) {
         document.getElementById('all-message').value = '';
         loadAllChat();
-        if (soundEnabled) document.getElementById('notification').play();
+        if (soundEnabled) {
+          const audio = document.getElementById('notification');
+          audio.play().catch(err => console.log('알림 소리 재생 실패:', err));
+        }
       }
     }
 
@@ -531,7 +543,10 @@
       if (data.success) {
         fileInput.value = '';
         loadChatHistory();
-        if (soundEnabled) document.getElementById('notification').play();
+        if (soundEnabled) {
+          const audio = document.getElementById('notification');
+          audio.play().catch(err => console.log('알림 소리 재생 실패:', err));
+        }
       }
     }
 
@@ -552,7 +567,10 @@
       if (data.success) {
         fileInput.value = '';
         loadAllChat();
-        if (soundEnabled) document.getElementById('notification').play();
+        if (soundEnabled) {
+          const audio = document.getElementById('notification');
+          audio.play().catch(err => console.log('알림 소리 재생 실패:', err));
+        }
       }
     }
 
@@ -648,7 +666,10 @@
       const data = await res.json();
       if (data.success) {
         loadChatHistory();
-        if (soundEnabled) document.getElementById('notification').play();
+        if (soundEnabled) {
+          const audio = document.getElementById('notification');
+          audio.play().catch(err => console.log('알림 소리 재생 실패:', err));
+        }
       }
     }
 
@@ -684,7 +705,10 @@
       const data = await res.json();
       if (data.success) {
         loadAllChat();
-        if (soundEnabled) document.getElementById('notification').play();
+        if (soundEnabled) {
+          const audio = document.getElementById('notification');
+          audio.play().catch(err => console.log('알림 소리 재생 실패:', err));
+        }
       }
     }
 
@@ -760,15 +784,23 @@
     function loadSound() {
       const sound = localStorage.getItem('notificationSound') || 'soft';
       const audio = document.getElementById('notification');
-      if (sound === 'soft') audio.src = 'https://www.myinstants.com/media/sounds/soft-chime.mp3';
+      if (sound === 'soft') audio.src = 'https://cdn.pixabay.com/audio/2023/08/07/audio_6f4b0e3e9b.mp3';
       else if (sound === 'bell') audio.src = 'https://www.myinstants.com/media/sounds/bell.mp3';
-      else if (sound === 'chime') audio.src = 'https://www.myinstants.com/media/sounds/chime.mp3';
+      else if (sound === 'chime') audio.src = 'https://cdn.pixabay.com/audio/2023/08/07/audio_8e1b0f4c2d.mp3';
     }
 
     function setSound(type) {
       localStorage.setItem('notificationSound', type);
       loadSound();
       alert(`소리가 ${type}로 변경되었어요! / ¡Sonido cambiado a ${type}!`);
+    }
+
+    function previewSound(type) {
+      const audio = document.getElementById('notification');
+      if (type === 'soft') audio.src = 'https://cdn.pixabay.com/audio/2023/08/07/audio_6f4b0e3e9b.mp3';
+      else if (type === 'bell') audio.src = 'https://www.myinstants.com/media/sounds/bell.mp3';
+      else if (type === 'chime') audio.src = 'https://cdn.pixabay.com/audio/2023/08/07/audio_8e1b0f4c2d.mp3';
+      audio.play().catch(err => console.log('미리듣기 소리 재생 실패:', err));
     }
 
     function pausePolling() {
