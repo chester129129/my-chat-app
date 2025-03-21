@@ -403,7 +403,7 @@
       });
       const allUsers = await resUsers.json();
       const chat = document.getElementById('chat-messages');
-      chat.innerHTML = '';
+      chat.innerHTML = ''; // 화면 초기화
       messages.forEach(data => {
         const user = allUsers.find(u => u.userId === data.from);
         const profilePic = user ? user.profilePic : '/uploads/default-profile.png';
@@ -669,14 +669,22 @@
 
     async function clearRoom() {
       if (!currentRoom || !confirm('대화 기록을 지울까요? / ¿Borrar historial de chat?')) return;
+      // 폴링 중지
+      if (pollingInterval) clearInterval(pollingInterval);
       const res = await fetch(`/chat/delete/${currentRoom}/${myId}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
       if (data.success) {
-        document.getElementById('chat-messages').innerHTML = '';
-        loadChatHistory();
+        // 즉시 화면 갱신
+        await loadChatHistory();
+        // 폴링 재시작
+        pollingInterval = setInterval(loadChatHistory, 2000);
+      } else {
+        alert('대화 지우기 실패 / No se pudo borrar el chat');
+        // 실패 시에도 폴링 재시작
+        pollingInterval = setInterval(loadChatHistory, 2000);
       }
     }
 
