@@ -218,7 +218,7 @@
   </div>
   <audio id="notification"></audio>
   <script>
-    let myId, currentRoom, pollingInterval, allChatInterval, mediaRecorder, audioChunks = [], soundEnabled = true;
+    let myId, currentRoom, pollingInterval, allChatInterval, mediaRecorder, audioChunks = [], soundEnabled = true, token;
 
     async function login() {
       const password = document.getElementById('password').value;
@@ -231,6 +231,8 @@
       const data = await res.json();
       if (data.success) {
         myId = userId;
+        token = data.token;
+        localStorage.setItem('token', token);
         document.getElementById('login').style.display = 'none';
         document.getElementById('main').style.display = 'block';
         updateUserList();
@@ -245,13 +247,19 @@
     async function logout() {
       await fetch('/logout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ userId: myId })
       });
+      localStorage.removeItem('token');
     }
 
     async function updateUserList() {
-      const res = await fetch('/users');
+      const res = await fetch('/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const users = await res.json();
       const usersDiv = document.getElementById('users');
       usersDiv.innerHTML = '';
@@ -273,7 +281,10 @@
     async function addFriend(friendId) {
       const res = await fetch('/friends', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ userId: myId, friendId })
       });
       const data = await res.json();
@@ -284,7 +295,10 @@
     async function removeFriend(friendId) {
       const res = await fetch('/friends', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ userId: myId, friendId })
       });
       const data = await res.json();
@@ -292,9 +306,13 @@
     }
 
     async function updateFriendsList() {
-      const resFriends = await fetch(`/friends/${myId}`);
+      const resFriends = await fetch(`/friends/${myId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const friends = await resFriends.json();
-      const resUsers = await fetch('/all-users');
+      const resUsers = await fetch('/all-users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const allUsers = await resUsers.json();
       const friendsDiv = document.getElementById('friends');
       friendsDiv.innerHTML = '';
@@ -318,9 +336,13 @@
     }
 
     async function updateRoomList() {
-      const resRooms = await fetch(`/rooms/${myId}`);
+      const resRooms = await fetch(`/rooms/${myId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const roomData = await resRooms.json();
-      const resUsers = await fetch('/all-users');
+      const resUsers = await fetch('/all-users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const allUsers = await resUsers.json();
       const roomList = document.getElementById('room-list');
       roomList.innerHTML = '';
@@ -345,7 +367,9 @@
     }
 
     async function updateSettingsProfile() {
-      const res = await fetch('/users');
+      const res = await fetch('/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const users = await res.json();
       const me = users.find(u => u.userId === myId);
       const profileDiv = document.getElementById('settings-profile');
@@ -370,9 +394,13 @@
 
     async function loadChatHistory() {
       if (!currentRoom) return;
-      const resMessages = await fetch(`/chat/${currentRoom}/${myId}`);
+      const resMessages = await fetch(`/chat/${currentRoom}/${myId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const messages = await resMessages.json();
-      const resUsers = await fetch('/all-users');
+      const resUsers = await fetch('/all-users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const allUsers = await resUsers.json();
       const chat = document.getElementById('chat-messages');
       chat.innerHTML = '';
@@ -397,9 +425,13 @@
     }
 
     async function loadAllChat() {
-      const resMessages = await fetch('/all-chat');
+      const resMessages = await fetch('/all-chat', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const messages = await resMessages.json();
-      const resUsers = await fetch('/all-users');
+      const resUsers = await fetch('/all-users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const allUsers = await resUsers.json();
       const chat = document.getElementById('all-chat-messages');
       chat.innerHTML = '';
@@ -428,7 +460,10 @@
       if (!currentRoom || !message) return;
       const res = await fetch('/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ roomId: currentRoom, from: myId, message })
       });
       const data = await res.json();
@@ -444,7 +479,10 @@
       if (!message) return;
       const res = await fetch('/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ roomId: 'all-chat', from: myId, message })
       });
       const data = await res.json();
@@ -465,6 +503,7 @@
       formData.append('from', myId);
       const res = await fetch('/upload', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       const data = await res.json();
@@ -485,6 +524,7 @@
       formData.append('from', myId);
       const res = await fetch('/upload', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       const data = await res.json();
@@ -504,6 +544,7 @@
       formData.append('userId', myId);
       const res = await fetch('/upload/profile', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       const data = await res.json();
@@ -580,6 +621,7 @@
       formData.append('from', myId);
       const res = await fetch('/upload/voice', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       const data = await res.json();
@@ -615,6 +657,7 @@
       formData.append('from', myId);
       const res = await fetch('/upload/voice', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       const data = await res.json();
@@ -626,7 +669,10 @@
 
     async function clearRoom() {
       if (!currentRoom || !confirm('대화 기록을 지울까요? / ¿Borrar historial de chat?')) return;
-      const res = await fetch(`/chat/delete/${currentRoom}/${myId}`, { method: 'POST' });
+      const res = await fetch(`/chat/delete/${currentRoom}/${myId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
       if (data.success) {
         document.getElementById('chat-messages').innerHTML = '';

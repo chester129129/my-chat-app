@@ -9,13 +9,37 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: false,
+  }
+});
 console.log('Supabase 연결 테스트:', supabase ? '성공' : '실패');
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Middleware to verify JWT and extract userId
+const verifyUser = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, message: '인증 토큰이 필요해요 / Se necesita un token de autenticación' });
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) {
+      return res.status(401).json({ success: false, message: '유효하지 않은 토큰이에요 / Token no válido' });
+    }
+    req.userId = user.id; // Supabase에서 제공하는 user ID
+    next();
+  } catch (error) {
+    console.log('인증 에러 / Error de autenticación:', error);
+    return res.status(500).json({ success: false, message: '서버 에러 / Error del servidor' });
+  }
+};
 
 app.post('/login', async (req, res) => {
   const { password, userId } = req.body;
@@ -27,13 +51,22 @@ app.post('/login', async (req, res) => {
     } else {
       await supabase.from('users').update({ online: true }).eq('userId', userId);
     }
-    res.json({ success: true, userId });
+    // Supabase 인증 토큰 생성 (간단히 userId를 기반으로)
+    const { data: { session }, error } = await supabase.auth.signInWithPassword({
+      email: `${userId}@example.com`, // 가짜 이메일 형식
+      password: process.env.PASSWORD,
+    });
+    if (error) {
+      console.log('로그인 토큰 생성 에러 / Error al generar token:', error);
+      return res.status(500).json({ success: false });
+    }
+    res.json({ success: true, userId, token: session.access_token });
   } else {
     res.status(401).json({ success: false });
   }
 });
 
-app.post('/logout', async (req, res) => {
+app.post('/logout', verifyUser, async (req, res) => {
   const { userId } = req.body;
   const { error } = await supabase.from('users').update({ online: false }).eq('userId', userId);
   if (error) {
@@ -61,9 +94,10 @@ app.get('/all-users', async (req, res) => {
   res.json(data.map(u => ({ userId: u.userId, profilePic: u.profilePic || '/uploads/default-profile.png' })));
 });
 
-app.post('/friends', async (req, res) => {
+app.post('/friends', verifyUser, async (req, res) => {
   const { userId, friendId } = req.body;
   if (!userId || !friendId) return res.status(400).json({ success: false });
+  if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
   const { data: user } = await supabase.from('users').select('friends').eq('userId', userId).single();
   if (!user) {
     await supabase.from('users').insert({ userId, friends: [friendId], online: true, profilePic: '/uploads/default-profile.png' });
@@ -80,8 +114,9 @@ app.post('/friends', async (req, res) => {
   }
 });
 
-app.delete('/friends', async (req, res) => {
+app.delete('/friends', verifyUser, async (req, res) => {
   const { userId, friendId } = req.body;
+  if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
   const { data: user } = await supabase.from('users').select('friends').eq('userId', userId).single();
   const updatedFriends = user.friends.filter(f => f !== friendId);
   const { error } = await supabase.from('users').update({ friends: updatedFriends }).eq('userId', userId);
@@ -92,8 +127,9 @@ app.delete('/friends', async (req, res) => {
   res.json({ success: true, friendId });
 });
 
-app.get('/friends/:userId', async (req, res) => {
+app.get('/friends/:userId', verifyUser, async (req, res) => {
   const userId = req.params.userId;
+  if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
   const { data: user, error } = await supabase.from('users').select('friends').eq('userId', userId).single();
   if (error || !user) {
     console.log('친구 목록 에러:', error);
@@ -102,8 +138,9 @@ app.get('/friends/:userId', async (req, res) => {
   res.json(user.friends || []);
 });
 
-app.get('/rooms/:userId', async (req, res) => {
+app.get('/rooms/:userId', verifyUser, async (req, res) => {
   const userId = req.params.userId;
+  if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
   const { data: messages, error } = await supabase.from('messages').select('*').ilike('room', `*${userId}*`).order('timestamp', { ascending: false });
   if (error) {
     console.log('채팅방 목록 에러:', error);
@@ -132,9 +169,10 @@ app.get('/all-chat', async (req, res) => {
   res.json(data);
 });
 
-app.get('/chat/:roomId/:userId', async (req, res) => {
+app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   const roomId = req.params.roomId;
   const userId = req.params.userId;
+  if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
   const { data: messages, error: msgError } = await supabase.from('messages').select('*').eq('room', roomId).order('timestamp', { ascending: true });
   if (msgError) {
     console.log('채팅 기록 가져오기 에러:', msgError);
@@ -151,9 +189,10 @@ app.get('/chat/:roomId/:userId', async (req, res) => {
   res.json(filteredMessages);
 });
 
-app.post('/chat', async (req, res) => {
+app.post('/chat', verifyUser, async (req, res) => {
   const { roomId, from, message } = req.body;
   if (!roomId || !from || !message) return res.status(400).json({ success: false });
+  if (from !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
 
   let finalMessage = message;
   const isEmojiOnly = /^[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Modifier_Base}\p{Emoji_Component}]+$/u.test(message);
@@ -181,9 +220,10 @@ app.post('/chat', async (req, res) => {
   res.json({ success: true, message: data });
 });
 
-app.post('/upload', upload.single('file'), async (req, res) => {
+app.post('/upload', verifyUser, upload.single('file'), async (req, res) => {
   const { roomId, from } = req.body;
   if (!roomId || !from || !req.file) return res.status(400).json({ success: false });
+  if (from !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
   const fileName = `${Date.now()}-${req.file.originalname}`;
   const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
     contentType: req.file.mimetype,
@@ -204,9 +244,10 @@ app.post('/upload', upload.single('file'), async (req, res) => {
   res.json({ success: true, message: data });
 });
 
-app.post('/upload/profile', upload.single('profile'), async (req, res) => {
+app.post('/upload/profile', verifyUser, upload.single('profile'), async (req, res) => {
   const { userId } = req.body;
   if (!userId || !req.file) return res.status(400).json({ success: false });
+  if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
   const fileName = `${userId}-${Date.now()}.jpg`;
   const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
     contentType: req.file.mimetype,
@@ -225,9 +266,10 @@ app.post('/upload/profile', upload.single('profile'), async (req, res) => {
   res.json({ success: true, profilePic: fileUrl });
 });
 
-app.post('/upload/voice', upload.single('voice'), async (req, res) => {
+app.post('/upload/voice', verifyUser, upload.single('voice'), async (req, res) => {
   const { roomId, from } = req.body;
   if (!roomId || !from || !req.file) return res.status(400).json({ success: false });
+  if (from !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
   const fileName = `${Date.now()}-voice.wav`;
   const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
     contentType: 'audio/wav',
@@ -248,9 +290,10 @@ app.post('/upload/voice', upload.single('voice'), async (req, res) => {
   res.json({ success: true, message: data });
 });
 
-app.post('/chat/delete/:roomId/:userId', async (req, res) => {
+app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
   const roomId = req.params.roomId;
   const userId = req.params.userId;
+  if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
   const { data: messages, error: msgError } = await supabase.from('messages').select('id').eq('room', roomId);
   if (msgError) {
     console.log('채팅 삭제 - 메시지 가져오기 에러:', msgError);
