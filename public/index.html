@@ -397,7 +397,7 @@
       const resMessages = await fetch(`/chat/${currentRoom}/${myId}`, {
         headers: { 
           'Authorization': `Bearer ${token}`,
-          'Cache-Control': 'no-cache' // 캐시 방지
+          'Cache-Control': 'no-cache'
         }
       });
       const messages = await resMessages.json();
@@ -746,9 +746,9 @@
     function loadSound() {
       const sound = localStorage.getItem('notificationSound') || 'soft';
       const audio = document.getElementById('notification');
-      if (sound === 'soft') audio.src = 'https://www.soundjay.com/buttons/soft-notification.mp3';
-      else if (sound === 'bell') audio.src = 'https://www.soundjay.com/buttons/bell-notification.mp3';
-      else if (sound === 'chime') audio.src = 'https://www.soundjay.com/buttons/chime-notification.mp3';
+      if (sound === 'soft') audio.src = 'https://www.myinstants.com/media/sounds/notification.mp3';
+      else if (sound === 'bell') audio.src = 'https://www.myinstants.com/media/sounds/bell.mp3';
+      else if (sound === 'chime') audio.src = 'https://www.myinstants.com/media/sounds/chime.mp3';
     }
 
     function setSound(type) {
