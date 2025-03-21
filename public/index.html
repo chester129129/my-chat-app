@@ -2,16 +2,18 @@
 <html>
 <head>
   <title>채팅 프로그램 / Programa de chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { 
       font-family: 'Segoe UI', Arial, sans-serif; 
       background: linear-gradient(135deg, #e0eafc, #cfdef3); 
       margin: 0; 
-      padding: 20px; 
+      padding: 10px; 
     }
     .container { max-width: 1000px; margin: 0 auto; }
     .tabs { 
       display: flex; 
+      flex-wrap: wrap; 
       background: #a3cffa; 
       border-radius: 15px; 
       box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
@@ -19,31 +21,32 @@
     }
     .tabs button { 
       flex: 1; 
-      padding: 15px; 
+      padding: 10px; 
       border: none; 
       background: #a3cffa; 
       color: #333; 
       font-weight: 600; 
       cursor: pointer; 
       transition: all 0.3s ease; 
+      font-size: 14px; 
     }
     .tabs button:hover { background: #89bffa; }
     .tabs button.active { background: #6bafff; color: white; }
     .tab-content { 
       display: none; 
-      padding: 20px; 
+      padding: 15px; 
       background: white; 
       border-radius: 15px; 
-      margin-top: 15px; 
+      margin-top: 10px; 
       box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
       animation: fadeIn 0.3s ease; 
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     #chat-messages, #all-chat-messages { 
-      height: 450px; 
+      height: 60vh; 
       overflow-y: auto; 
       border: 1px solid #e0e0e0; 
-      padding: 15px; 
+      padding: 10px; 
       background: #fafafa; 
       border-radius: 10px; 
       box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); 
@@ -51,56 +54,58 @@
     #chat-room button, #all-chat button, #settings-content button { 
       background: #ffd1dc; 
       border: none; 
-      padding: 10px 15px; 
+      padding: 8px 12px; 
       margin: 5px; 
       border-radius: 8px; 
       cursor: pointer; 
       color: #333; 
       transition: all 0.3s ease; 
+      font-size: 14px; 
     }
     #chat-room button:hover, #all-chat button:hover, #settings-content button:hover { background: #ffb6c1; }
-    img.profile-pic { width: 40px; height: 40px; border-radius: 50%; vertical-align: middle; margin-right: 10px; }
-    img.message-media, video { max-width: 250px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    img.profile-pic { width: 30px; height: 30px; border-radius: 50%; vertical-align: middle; margin-right: 8px; }
+    img.message-media, video { max-width: 200px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     .unread { color: #ff6b6b; font-weight: 600; }
     #emoji-picker, #emoji-picker-all { 
       display: none; 
       position: absolute; 
       background: white; 
       border: 1px solid #ddd; 
-      padding: 10px; 
+      padding: 8px; 
       border-radius: 10px; 
       box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
     }
     input[type="text"], input[type="file"] { 
-      padding: 10px; 
+      padding: 8px; 
       margin: 5px; 
       border: 1px solid #ddd; 
       border-radius: 8px; 
-      width: calc(100% - 22px); 
+      width: calc(100% - 18px); 
       box-sizing: border-box; 
+      font-size: 14px; 
     }
     #login { 
       background: #fff3e6; 
-      padding: 25px; 
+      padding: 20px; 
       border-radius: 15px; 
       box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
       text-align: center; 
-      margin: 50px auto; 
-      max-width: 350px; 
+      margin: 20px auto; 
+      max-width: 300px; 
     }
     #settings-profile { 
       display: flex; 
       align-items: center; 
-      padding: 20px; 
+      padding: 15px; 
       background: linear-gradient(135deg, #a3cffa, #ffd1dc); 
       border-radius: 10px; 
-      margin-bottom: 20px; 
+      margin-bottom: 15px; 
     }
-    #settings-profile img { width: 80px; height: 80px; border-radius: 50%; margin-right: 20px; }
-    #settings-profile span { font-size: 1.5em; font-weight: bold; color: #333; }
+    #settings-profile img { width: 60px; height: 60px; border-radius: 50%; margin-right: 15px; }
+    #settings-profile span { font-size: 1.2em; font-weight: bold; color: #333; }
     .settings-sub { 
       background: linear-gradient(135deg, #ffd1dc, #a3cffa); 
-      padding: 20px; 
+      padding: 15px; 
       border-radius: 10px; 
       box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
       text-align: center; 
@@ -109,13 +114,28 @@
       background: #fff3e6; 
       color: #333; 
       font-weight: 600; 
-      padding: 12px 20px; 
+      padding: 10px 15px; 
       border-radius: 10px; 
-      margin: 10px; 
+      margin: 8px; 
+      font-size: 14px; 
     }
-    .settings-sub p { font-size: 1.1em; color: #333; }
-    .message { padding: 10px; margin: 5px 0; border-radius: 8px; background: #f0f4f8; }
-    .timestamp { font-size: 0.8em; color: #666; }
+    .settings-sub p { font-size: 1em; color: #333; }
+    .message { padding: 8px; margin: 5px 0; border-radius: 8px; background: #f0f4f8; font-size: 14px; }
+    .timestamp { font-size: 0.7em; color: #666; }
+
+    @media (max-width: 600px) {
+      body { padding: 5px; }
+      .tabs { flex-direction: column; }
+      .tabs button { padding: 12px; font-size: 16px; }
+      #chat-messages, #all-chat-messages { height: 50vh; }
+      #chat-room button, #all-chat button, #settings-content button { padding: 10px; font-size: 16px; }
+      input[type="text"], input[type="file"] { font-size: 16px; }
+      #login { padding: 15px; max-width: 90%; }
+      #settings-profile img { width: 50px; height: 50px; }
+      #settings-profile span { font-size: 1em; }
+      .settings-sub button { padding: 12px; font-size: 16px; }
+      .message { font-size: 16px; }
+    }
   </style>
 </head>
 <body>
@@ -173,6 +193,10 @@
       </div>
       <div id="sound-settings" class="settings-sub" style="display: none;">
         <button onclick="toggleSound()">소리 켜기/끄기 / Activar/Desactivar sonido</button>
+        <p>소리 선택 / Seleccionar sonido:</p>
+        <button onclick="setSound('soft')">부드러운 소리 / Sonido suave</button>
+        <button onclick="setSound('bell')">종소리 / Campana</button>
+        <button onclick="setSound('chime')">차임 소리 / Carillón</button>
         <button onclick="backToSettings()">뒤로가기 / Volver</button>
       </div>
       <div id="credits-settings" class="settings-sub" style="display: none;">
@@ -183,14 +207,16 @@
         <p>이 프로그램 사용법 / Instrucciones del programa:<br>
           1. 로그인 후 탭을 선택해 / Inicia sesión y elige una pestaña.<br>
           2. 친구 추가 후 채팅 시작 / Añade amigos y empieza a chatear.<br>
-          3. 전체 채팅에서 모두와 대화 / Habla con todos en el chat general.<br>
-          4. 설정에서 사진과 소리 변경 / Cambia tu foto y sonido en configuración.
+          3. 전체 채팅은 30개만 유지 / El chat general mantiene 30 mensajes.<br>
+          4. 설정에서 사진, 소리 변경 / Cambia foto y sonido en configuración.<br>
+          5. 용량 400MB 초과 시 오래된 메시지 삭제 / Mensajes antiguos se borran si supera 400MB.<br>
+          6. 미디어는 7일 후 삭제 / Medios se borran tras 7 días.
         </p>
         <button onclick="backToSettings()">뒤로가기 / Volver</button>
       </div>
     </div>
   </div>
-  <audio id="notification" src="https://www.soundjay.com/buttons/beep-01a.mp3"></audio>
+  <audio id="notification"></audio>
   <script>
     let myId, currentRoom, pollingInterval, allChatInterval, mediaRecorder, audioChunks = [], soundEnabled = true;
 
@@ -205,11 +231,11 @@
       const data = await res.json();
       if (data.success) {
         myId = userId;
-        console.log('내 아이디:', myId); // 디버깅용
         document.getElementById('login').style.display = 'none';
         document.getElementById('main').style.display = 'block';
         updateUserList();
         updateSettingsProfile();
+        loadSound();
         window.onbeforeunload = logout;
       } else {
         alert('비밀번호가 틀렸어! / ¡Contraseña incorrecta!');
@@ -326,8 +352,7 @@
       if (me) {
         profileDiv.innerHTML = `<img src="${me.profilePic}" class="profile-pic"><span>${myId}</span>`;
       } else {
-        profileDiv.innerHTML = `<span>유저를 못 찾았어요: ${myId}</span>`;
-        console.log('내 정보 없음:', users); // 디버깅용
+        profileDiv.innerHTML = `<span>유저를 못 찾았어요: ${myId} / No se encontró el usuario: ${myId}</span>`;
       }
     }
 
@@ -364,7 +389,7 @@
         } else if (data.type === 'video') {
           p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <video src="${data.message}" controls class="message-media"></video> <span class="timestamp">${timestamp}</span>`;
         } else if (data.type === 'voice') {
-          p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <audio src="${data.message}" controls></audio> <span class="timestamp">${timestamp}</span>`;
+          p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <audio src="${data.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio> <span class="timestamp">${timestamp}</span>`;
         }
         chat.appendChild(p);
       });
@@ -391,7 +416,7 @@
         } else if (data.type === 'video') {
           p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <video src="${data.message}" controls class="message-media"></video> <span class="timestamp">${timestamp}</span>`;
         } else if (data.type === 'voice') {
-          p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <audio src="${data.message}" controls></audio> <span class="timestamp">${timestamp}</span>`;
+          p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <audio src="${data.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio> <span class="timestamp">${timestamp}</span>`;
         }
         chat.appendChild(p);
       });
@@ -548,9 +573,9 @@
     }
 
     async function sendVoiceMessage() {
-      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
       const formData = new FormData();
-      formData.append('voice', audioBlob, 'voice.webm');
+      formData.append('voice', audioBlob, 'voice.wav');
       formData.append('roomId', currentRoom);
       formData.append('from', myId);
       const res = await fetch('/upload/voice', {
@@ -583,9 +608,9 @@
     }
 
     async function sendAllVoiceMessage() {
-      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
       const formData = new FormData();
-      formData.append('voice', audioBlob, 'voice.webm');
+      formData.append('voice', audioBlob, 'voice.wav');
       formData.append('roomId', 'all-chat');
       formData.append('from', myId);
       const res = await fetch('/upload/voice', {
@@ -659,6 +684,30 @@
     function toggleSound() {
       soundEnabled = !soundEnabled;
       alert(`소리가 ${soundEnabled ? '켜졌어요 / ¡Sonido activado!' : '꺼졌어요 / ¡Sonido desactivado!'}`);
+    }
+
+    function loadSound() {
+      const sound = localStorage.getItem('notificationSound') || 'soft';
+      const audio = document.getElementById('notification');
+      if (sound === 'soft') audio.src = 'https://www.soundjay.com/buttons/soft-notification.mp3';
+      else if (sound === 'bell') audio.src = 'https://www.soundjay.com/buttons/bell-notification.mp3';
+      else if (sound === 'chime') audio.src = 'https://www.soundjay.com/buttons/chime-notification.mp3';
+    }
+
+    function setSound(type) {
+      localStorage.setItem('notificationSound', type);
+      loadSound();
+      alert(`소리가 ${type}로 변경되었어요! / ¡Sonido cambiado a ${type}!`);
+    }
+
+    function pausePolling() {
+      if (pollingInterval) clearInterval(pollingInterval);
+      if (allChatInterval) clearInterval(allChatInterval);
+    }
+
+    function resumePolling() {
+      if (currentRoom) pollingInterval = setInterval(loadChatHistory, 2000);
+      if (document.getElementById('all-chat').style.display === 'block') allChatInterval = setInterval(loadAllChat, 2000);
     }
   </script>
 </body>
