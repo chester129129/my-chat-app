@@ -1,7 +1,7 @@
 const express = require('express');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const multer = require('multer');
-const path = require('path');
+const jwt = require('jsonwebtoken'); // 추가
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
@@ -9,11 +9,7 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: false,
-  }
-});
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 console.log('Supabase 연결 테스트:', supabase ? '성공' : '실패');
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
@@ -29,41 +25,30 @@ const verifyUser = async (req, res, next) => {
   }
   const token = authHeader.split(' ')[1];
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      return res.status(401).json({ success: false, message: '유효하지 않은 토큰이에요 / Token no válido' });
-    }
-    req.userId = user.id; // Supabase에서 제공하는 user ID
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.userId;
     next();
   } catch (error) {
     console.log('인증 에러 / Error de autenticación:', error);
-    return res.status(500).json({ success: false, message: '서버 에러 / Error del servidor' });
+    return res.status(401).json({ success: false, message: '유효하지 않은 토큰이에요 / Token no válido' });
   }
 };
 
 app.post('/login', async (req, res) => {
   const { password, userId } = req.body;
   if (!userId) return res.status(400).json({ success: false, message: 'userId 필요 / Necesitas un userId' });
-  if (password === process.env.PASSWORD) {
-    const { data: user } = await supabase.from('users').select('*').eq('userId', userId).single();
-    if (!user) {
-      await supabase.from('users').insert({ userId, friends: [], online: true, profilePic: '/uploads/default-profile.png' });
-    } else {
-      await supabase.from('users').update({ online: true }).eq('userId', userId);
-    }
-    // Supabase 인증 토큰 생성 (간단히 userId를 기반으로)
-    const { data: { session }, error } = await supabase.auth.signInWithPassword({
-      email: `${userId}@example.com`, // 가짜 이메일 형식
-      password: process.env.PASSWORD,
-    });
-    if (error) {
-      console.log('로그인 토큰 생성 에러 / Error al generar token:', error);
-      return res.status(500).json({ success: false });
-    }
-    res.json({ success: true, userId, token: session.access_token });
-  } else {
-    res.status(401).json({ success: false });
+  if (password !== process.env.PASSWORD) {
+    return res.status(401).json({ success: false, message: '비밀번호가 틀렸어! / ¡Contraseña incorrecta!' });
   }
+  const { data: user } = await supabase.from('users').select('*').eq('userId', userId).single();
+  if (!user) {
+    await supabase.from('users').insert({ userId, friends: [], online: true, profilePic: '/uploads/default-profile.png' });
+  } else {
+    await supabase.from('users').update({ online: true }).eq('userId', userId);
+  }
+  // 자체 JWT 토큰 생성
+  const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  res.json({ success: true, userId, token });
 });
 
 app.post('/logout', verifyUser, async (req, res) => {
