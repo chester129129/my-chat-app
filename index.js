@@ -159,21 +159,26 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
 
   // 메시지와 삭제된 메시지를 동시에 가져오기 (최신 데이터 보장)
-  const { data: messages, error: msgError } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('room', roomId)
-    .order('timestamp', { ascending: true });
+  const [messagesRes, deletedRes] = await Promise.all([
+    supabase
+      .from('messages')
+      .select('*')
+      .eq('room', roomId)
+      .order('timestamp', { ascending: true }),
+    supabase
+      .from('deleted_messages')
+      .select('messageId')
+      .eq('userId', userId)
+      .eq('roomId', roomId)
+  ]);
+
+  const { data: messages, error: msgError } = messagesRes;
   if (msgError) {
     console.log('채팅 기록 가져오기 에러:', msgError);
     return res.status(500).json([]);
   }
 
-  const { data: deleted, error: delError } = await supabase
-    .from('deleted_messages')
-    .select('messageId')
-    .eq('userId', userId)
-    .eq('roomId', roomId);
+  const { data: deleted, error: delError } = deletedRes;
   if (delError) {
     console.log('삭제된 메시지 가져오기 에러:', delError);
     return res.status(500).json([]);

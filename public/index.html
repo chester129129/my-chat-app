@@ -395,7 +395,10 @@
     async function loadChatHistory() {
       if (!currentRoom) return;
       const resMessages = await fetch(`/chat/${currentRoom}/${myId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache' // 캐시 방지
+        }
       });
       const messages = await resMessages.json();
       const resUsers = await fetch('/all-users', {
