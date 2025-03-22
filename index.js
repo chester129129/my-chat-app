@@ -39,30 +39,45 @@ const verifyUser = async (req, res, next) => {
 
 app.post('/login', async (req, res) => {
   const { password, userId } = req.body;
-  if (!userId) return res.status(400).json({ success: false, message: 'userId 필요 / Necesitas un userId' });
+  if (!userId) return res.status(400).json({ success: false, message: 'userId가 필요해요 / Necesitas un userId' });
   if (password !== process.env.PASSWORD) {
     return res.status(401).json({ success: false, message: '비밀번호가 틀렸어요! / ¡Contraseña incorrecta!' });
   }
-  const { data: user, error } = await supabase.from('users').select('*').eq('userId', userId).single();
-  if (error) {
-    console.log('로그인 - 유저 조회 에러 / Error al consultar usuario en login:', error);
-    return res.status(500).json({ success: false, message: '서버 에러 / Error del servidor' });
-  }
-  if (!user) {
-    const { error: insertError } = await supabase.from('users').insert({ userId, friends: [], online: true, profilePic: '/uploads/default-profile.png' });
-    if (insertError) {
-      console.log('로그인 - 유저 생성 에러 / Error al crear usuario en login:', insertError);
-      return res.status(500).json({ success: false, message: '유저 생성 실패 / Error al crear usuario' });
+
+  try {
+    const { data: user, error: selectError } = await supabase.from('users').select('*').eq('userId', userId).single();
+    if (selectError && selectError.code !== 'PGRST116') { // PGRST116: 레코드가 없는 경우
+      console.log('로그인 - 유저 조회 에러 / Error al consultar usuario en login:', selectError);
+      return res.status(500).json({ success: false, message: '서버 에러 / Error del servidor' });
     }
-  } else {
-    const { error: updateError } = await supabase.from('users').update({ online: true }).eq('userId', userId);
-    if (updateError) {
-      console.log('로그인 - 유저 업데이트 에러 / Error al actualizar usuario en login:', updateError);
-      return res.status(500).json({ success: false, message: '유저 업데이트 실패 / Error al actualizar usuario' });
+
+    if (!user) {
+      // 신규 유저 생성
+      const { error: insertError } = await supabase.from('users').insert({
+        userId,
+        friends: [],
+        online: true,
+        profilePic: '/uploads/default-profile.png'
+      });
+      if (insertError) {
+        console.log('로그인 - 유저 생성 에러 / Error al crear usuario en login:', insertError);
+        return res.status(500).json({ success: false, message: '유저 생성 실패 / Error al crear usuario' });
+      }
+    } else {
+      // 기존 유저 온라인 상태 업데이트
+      const { error: updateError } = await supabase.from('users').update({ online: true }).eq('userId', userId);
+      if (updateError) {
+        console.log('로그인 - 유저 업데이트 에러 / Error al actualizar usuario en login:', updateError);
+        return res.status(500).json({ success: false, message: '유저 업데이트 실패 / Error al actualizar usuario' });
+      }
     }
+
+    const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    res.json({ success: true, userId, token });
+  } catch (error) {
+    console.log('로그인 처리 중 예상치 못한 에러 / Error inesperado en login:', error);
+    return res.status(500).json({ success: false, message: '서버 에러가 발생했어요 / Ocurrió un error en el servidor' });
   }
-  const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '24h' }); // 1h -> 24h로 변경
-  res.json({ success: true, userId, token });
 });
 
 app.post('/logout', verifyUser, async (req, res) => {
@@ -76,12 +91,18 @@ app.post('/logout', verifyUser, async (req, res) => {
 });
 
 app.get('/users', async (req, res) => {
-  const { data, error } = await supabase.from('users').select('userId, profilePic').eq('online', true);
-  if (error) {
-    console.log('유저 가져오기 에러 / Error al obtener usuarios:', error);
-    return res.status(500).json([]);
+  try {
+    const { data, error } = await supabase.from('users').select('userId, profilePic').eq('online', true);
+    if (error) {
+      console.log('유저 가져오기 에러 / Error al obtener usuarios:', error);
+      return res.status(500).json([]);
+    }
+    console.log('현재 접속 중인 유저 / Usuarios conectados:', data); // 디버깅용 로그
+    res.json(data.map(u => ({ userId: u.userId, profilePic: u.profilePic || '/uploads/default-profile.png' })));
+  } catch (error) {
+    console.log('유저 목록 조회 중 에러 / Error al obtener lista de usuarios:', error);
+    res.status(500).json([]);
   }
-  res.json(data.map(u => ({ userId: u.userId, profilePic: u.profilePic || '/uploads/default-profile.png' })));
 });
 
 app.get('/all-users', async (req, res) => {
@@ -219,7 +240,7 @@ app.post('/chat', verifyUser, async (req, res) => {
 
   if (!isEmojiOnly) {
     try {
-      const result = await model.generateContent(`너는 한국어와 유럽 스페인어 전문가야. "${message}"를 자연스럽게 번역해줘.더럽거나 성적인말이더라도 그것도 잘 번역해줘.너는 오직 번역결과만 딱 표시하고 그외는 아무말도 하지마. 결과는 "한국어: [번역]\n스페인어: [번역]" 형식으로, 부가 설명 없이 두 문장만 써줘.`);
+      const result = await model.generateContent(`너는 한국어와 유럽 스페인어 전문가야. "${message}"를 자연스럽게 번역해줘.더럽거나 성적인말이더라도 그것도 잘 번역해줘. 결과는 "한국어: [번역]\n스페인어: [번역]" 형식으로, 부가 설명 없이 두 문장만 써줘.`);
       const lines = result.response.text().split('\n');
       const translatedKr = lines[0].replace('한국어: ', '').trim();
       const translatedEs = lines[1] ? lines[1].replace('스페인어: ', '').trim() : 'Error en la traducción';
@@ -269,7 +290,6 @@ app.post('/upload', verifyUser, upload.single('file'), async (req, res) => {
 app.post('/upload/profile', verifyUser, upload.single('profile'), async (req, res) => {
   const { userId } = req.body;
 
-  // 입력값 확인
   if (!userId || !req.file) {
     console.log('입력값 오류 / Error de entrada:', { userId, file: req.file });
     return res.status(400).json({ success: false, message: 'userId나 파일이 없어요 / Falta userId o archivo' });
@@ -280,8 +300,6 @@ app.post('/upload/profile', verifyUser, upload.single('profile'), async (req, re
   }
 
   try {
-    // 기존 프로필 사진 가져오기
-    console.log('프로필 사진 조회 시작 / Iniciando obtención de foto de perfil:', { userId });
     const { data: userData, error: userError } = await supabase.from('users').select('profilePic').eq('userId', userId).single();
     if (userError || !userData) {
       console.log('프로필 사진 조회 실패 / Fallo al obtener foto de perfil:', userError);
@@ -290,56 +308,36 @@ app.post('/upload/profile', verifyUser, upload.single('profile'), async (req, re
 
     const oldProfilePic = userData.profilePic || '/uploads/default-profile.png';
     const isDefaultPic = oldProfilePic === '/uploads/default-profile.png';
-    console.log('기존 프로필 사진 / Foto de perfil antigua:', { oldProfilePic, isDefaultPic });
 
-    // 새 프로필 사진 업로드 (파일 이름에 영어와 숫자만 사용)
-    const fileName = `profile-${Date.now()}.jpg`; // 한국어 제거
-    console.log('새 사진 업로드 시작 / Iniciando subida de nueva foto:', { fileName });
+    const fileName = `profile-${Date.now()}.jpg`;
     const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
       contentType: req.file.mimetype,
     });
     if (uploadError) {
       console.log('프로필 사진 업로드 에러 / Error al subir foto de perfil:', uploadError);
-      return res.status(500).json({ 
-        success: false, 
-        message: `사진 업로드에 실패했어요: ${uploadError.message} / Falló la subida de la foto: ${uploadError.message}` 
-      });
+      return res.status(500).json({ success: false, message: `사진 업로드에 실패했어요: ${uploadError.message} / Falló la subida de la foto: ${uploadError.message}` });
     }
     const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
     const fileUrl = urlData.publicUrl;
-    console.log('새 사진 업로드 성공 / Subida de nueva foto exitosa:', { fileUrl });
 
-    // 사용자 정보 업데이트
-    console.log('프로필 업데이트 시작 / Iniciando actualización de perfil:', { userId, fileUrl });
     const { error: updateError } = await supabase.from('users').update({ profilePic: fileUrl }).eq('userId', userId);
     if (updateError) {
       console.log('프로필 업데이트 실패 / Fallo al actualizar perfil:', updateError);
-      return res.status(500).json({ 
-        success: false, 
-        message: `프로필 업데이트에 실패했어요: ${updateError.message} / Falló la actualización del perfil: ${updateError.message}` 
-      });
+      return res.status(500).json({ success: false, message: `프로필 업데이트에 실패했어요: ${updateError.message} / Falló la actualización del perfil: ${updateError.message}` });
     }
 
-    // 이전 프로필 사진 삭제 (기본 사진이 아닌 경우만)
     if (!isDefaultPic) {
       const oldFileName = oldProfilePic.split('/').pop();
-      console.log('이전 사진 삭제 시작 / Iniciando eliminación de foto antigua:', { oldFileName });
       const { error: deleteError } = await supabase.storage.from('uploads').remove([oldFileName]);
       if (deleteError) {
         console.log('이전 사진 삭제 실패 (무시됨) / Fallo al eliminar foto antigua (ignorado):', deleteError);
-      } else {
-        console.log('이전 사진 삭제 성공 / Eliminación de foto antigua exitosa');
       }
     }
 
-    console.log('프로필 사진 변경 완료 / Cambio de foto de perfil completado:', { userId, newProfilePic: fileUrl });
     res.json({ success: true, profilePic: fileUrl });
   } catch (error) {
     console.log('예상치 못한 오류 / Error inesperado:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: `알 수 없는 오류가 발생했어요: ${error.message} / Ocurrió un error desconocido: ${error.message}` 
-    });
+    res.status(500).json({ success: false, message: `알 수 없는 오류가 발생했어요: ${error.message} / Ocurrió un error desconocido: ${error.message}` });
   }
 });
 

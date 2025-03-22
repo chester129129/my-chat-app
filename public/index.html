@@ -389,7 +389,10 @@
 
     async function updateUserList() {
       const res = await fetch('/users', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache' // 캐시 방지
+        }
       });
       const users = await res.json();
       const usersDiv = document.getElementById('users');
@@ -913,17 +916,7 @@
       if (type === 'soft') audio.src = 'https://cdn.pixabay.com/audio/2024/11/29/audio_0b4f12f995.mp3';
       else if (type === 'bell') audio.src = 'https://www.myinstants.com/media/sounds/bell.mp3';
       else if (type === 'chime') audio.src = 'https://cdn.pixabay.com/audio/2024/11/29/audio_538916a9ed.mp3';
-      audio.play().catch(err => console.log('미리듣기 소리 재생 실패:', err));
-    }
-
-    function pausePolling() {
-      if (pollingInterval) clearInterval(pollingInterval);
-      if (allChatInterval) clearInterval(allChatInterval);
-    }
-
-    function resumePolling() {
-      if (currentRoom) pollingInterval = setInterval(loadChatHistory, 2000);
-      if (document.getElementById('all-chat').style.display === 'block') allChatInterval = setInterval(loadAllChat, 2000);
+      audio.play();
     }
   </script>
 </body>
