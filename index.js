@@ -61,7 +61,7 @@ app.post('/login', async (req, res) => {
       return res.status(500).json({ success: false, message: '유저 업데이트 실패 / Error al actualizar usuario' });
     }
   }
-  const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '24h' }); // 1h -> 24h로 변경
   res.json({ success: true, userId, token });
 });
 
@@ -293,13 +293,13 @@ app.post('/upload/profile', verifyUser, upload.single('profile'), async (req, re
     console.log('기존 프로필 사진 / Foto de perfil antigua:', { oldProfilePic, isDefaultPic });
 
     // 새 프로필 사진 업로드 (파일 이름에 영어와 숫자만 사용)
-    const fileName = `profile-${Date.now()}.jpg`; // 한국어 대신 "profile" 사용
+    const fileName = `profile-${Date.now()}.jpg`; // 한국어 제거
     console.log('새 사진 업로드 시작 / Iniciando subida de nueva foto:', { fileName });
     const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
       contentType: req.file.mimetype,
     });
     if (uploadError) {
-      console.log('프로필 사진 업로드 실패 / Fallo al subir foto de perfil:', uploadError);
+      console.log('프로필 사진 업로드 에러 / Error al subir foto de perfil:', uploadError);
       return res.status(500).json({ 
         success: false, 
         message: `사진 업로드에 실패했어요: ${uploadError.message} / Falló la subida de la foto: ${uploadError.message}` 
