@@ -9,11 +9,6 @@
       background: linear-gradient(135deg, #e0eafc, #cfdef3); 
       margin: 0; 
       padding: 10px; 
-      animation: backgroundShift 10s infinite alternate; 
-    }
-    @keyframes backgroundShift { 
-      0% { background: linear-gradient(135deg, #e0eafc, #cfdef3); } 
-      100% { background: linear-gradient(135deg, #cfdef3, #e0eafc); } 
     }
     .container { max-width: 1000px; margin: 0 auto; }
     .tabs { 
@@ -109,7 +104,7 @@
     }
     #login { 
       background: #fff3e6; 
-      padding: 40px 25px 25px 25px; /* 위쪽 여백 늘림 */
+      padding: 40px 25px 25px 25px; 
       border-radius: 20px; 
       box-shadow: 0 6px 15px rgba(0,0,0,0.1); 
       text-align: center; 
@@ -121,17 +116,12 @@
     #login::before { 
       content: '🌟✨😊 Bienvenido / 환영합니다 😊✨🌟'; 
       position: absolute; 
-      top: 5px; /* 위로 너무 붙지 않게 조정 */
+      top: 5px; 
       left: 0; 
       width: 100%; 
       text-align: center; 
-      font-size: 18px; /* 글씨 크기 살짝 줄임 */
+      font-size: 18px; 
       color: #ff6b6b; 
-      animation: sparkle 2s infinite; 
-    }
-    @keyframes sparkle { 
-      0%, 100% { opacity: 1; } 
-      50% { opacity: 0.5; } 
     }
     #login input[type="text"], #login input[type="password"] { 
       background: #fff; 
@@ -151,7 +141,7 @@
       box-shadow: 0 3px 8px rgba(0,0,0,0.15); 
     }
     #login button::before { 
-      content: '🔑 '; /* 로그인 버튼에 열쇠 이모지 추가 */
+      content: '🔑 '; 
     }
     #login button:hover { transform: scale(1.05); box-shadow: 0 5px 12px rgba(0,0,0,0.2); }
     #login label { 
@@ -184,17 +174,21 @@
       text-align: center; 
     }
     .settings-sub button { 
-      background: #fff3e6; 
+      background: linear-gradient(135deg, #ffccd5, #a3cffa); 
       color: #333; 
-      font-weight: 600; 
-      padding: 12px 20px; 
-      border-radius: 12px; 
-      margin: 10px; 
-      font-size: 16px; 
+      font-weight: 700; 
+      padding: 15px 25px; 
+      border-radius: 15px; 
+      margin: 12px; 
+      font-size: 18px; 
       transition: all 0.3s ease; 
-      box-shadow: 0 3px 8px rgba(0,0,0,0.1); 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+      border: none; 
     }
-    .settings-sub button:hover { transform: scale(1.05); box-shadow: 0 5px 12px rgba(0,0,0,0.2); }
+    .settings-sub button:hover { 
+      transform: scale(1.08); 
+      box-shadow: 0 6px 15px rgba(0,0,0,0.2); 
+    }
     .settings-sub p { font-size: 1em; color: #333; }
     .sound-table { 
       display: grid; 
