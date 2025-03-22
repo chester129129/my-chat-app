@@ -109,7 +109,7 @@
     }
     #login { 
       background: #fff3e6; 
-      padding: 25px; 
+      padding: 40px 25px 25px 25px; /* 위쪽 여백 늘림 */
       border-radius: 20px; 
       box-shadow: 0 6px 15px rgba(0,0,0,0.1); 
       text-align: center; 
@@ -121,11 +121,11 @@
     #login::before { 
       content: '🌟✨😊 Bienvenido / 환영합니다 😊✨🌟'; 
       position: absolute; 
-      top: -20px; 
+      top: 5px; /* 위로 너무 붙지 않게 조정 */
       left: 0; 
       width: 100%; 
       text-align: center; 
-      font-size: 20px; 
+      font-size: 18px; /* 글씨 크기 살짝 줄임 */
       color: #ff6b6b; 
       animation: sparkle 2s infinite; 
     }
@@ -149,6 +149,9 @@
       cursor: pointer; 
       transition: all 0.3s ease; 
       box-shadow: 0 3px 8px rgba(0,0,0,0.15); 
+    }
+    #login button::before { 
+      content: '🔑 '; /* 로그인 버튼에 열쇠 이모지 추가 */
     }
     #login button:hover { transform: scale(1.05); box-shadow: 0 5px 12px rgba(0,0,0,0.2); }
     #login label { 
@@ -214,8 +217,8 @@
       #chat-room button, #all-chat button { padding: 12px 18px; font-size: 18px; }
       #users button, #friends button, #settings-content button { padding: 14px 20px; font-size: 18px; }
       input[type="text"], input[type="file"] { font-size: 18px; }
-      #login { padding: 20px; max-width: 90%; }
-      #login::before { font-size: 18px; top: -15px; }
+      #login { padding: 35px 20px 20px 20px; max-width: 90%; }
+      #login::before { font-size: 16px; top: 5px; }
       #settings-profile img { width: 50px; height: 50px; }
       #settings-profile span { font-size: 1em; }
       .settings-sub button { padding: 14px 20px; font-size: 18px; }
@@ -228,75 +231,75 @@
   <div id="login">
     <input id="password" type="password" placeholder="비밀번호 / Contraseña">
     <input id="userId" type="text" placeholder="아이디 / ID">
-    <label><input id="rememberMe" type="checkbox"> 나 기억하기 / Recordarme</label>
+    <label><input id="rememberMe" type="checkbox"> ✨ 나 기억하기 / Recordarme ✨</label>
     <button onclick="login()">로그인 / Iniciar sesión</button>
   </div>
   <div id="main" style="display: none;" class="container">
     <div class="tabs">
-      <button onclick="showTab('users')">접속 중인 사람들 / Personas conectadas</button>
-      <button onclick="showTab('friends')">내 친구들 / Mis amigos</button>
-      <button onclick="showTab('chat')">채팅 / Chat</button>
-      <button onclick="showTab('all-chat')">전체 채팅 / Chat general</button>
-      <button onclick="showTab('settings')">설정 / Configuración</button>
+      <button onclick="showTab('users')">👥 접속 중인 사람들 / Personas conectadas</button>
+      <button onclick="showTab('friends')">👫 내 친구들 / Mis amigos</button>
+      <button onclick="showTab('chat')">💬 채팅 / Chat</button>
+      <button onclick="showTab('all-chat')">🌍 전체 채팅 / Chat general</button>
+      <button onclick="showTab('settings')">⚙️ 설정 / Configuración</button>
     </div>
     <div id="users" class="tab-content" style="display: block;"></div>
     <div id="friends" class="tab-content" style="display: none;"></div>
     <div id="chat" class="tab-content" style="display: none;">
       <div id="room-list" style="display: block;"></div>
       <div id="chat-room" style="display: none;">
-        <button onclick="backToRooms()">뒤로가기 / Volver</button>
-        <button onclick="clearRoom()">대화 지우기 / Borrar chat</button>
+        <button onclick="backToRooms()">⬅️ 뒤로가기 / Volver</button>
+        <button onclick="clearRoom()">🗑️ 대화 지우기 / Borrar chat</button>
         <div id="chat-messages"></div>
-        <input id="message" type="text" placeholder="메시지 입력 / Escribe un mensaje" onkeypress="if(event.key === 'Enter') sendMessage()">
+        <input id="message" type="text" placeholder="💌 메시지 입력 / Escribe un mensaje" onkeypress="if(event.key === 'Enter') sendMessage()">
         <button onclick="showEmojiPicker()">😊</button>
         <div id="emoji-picker"></div>
         <input type="file" id="fileInput" accept="image/*,video/*" onchange="sendFile()">
         <button onclick="startRecording()">🎙️</button>
         <button onclick="stopRecording()" disabled>⏹️</button>
-        <button onclick="sendMessage()">보내기 / Enviar</button>
+        <button onclick="sendMessage()">✈️ 보내기 / Enviar</button>
       </div>
     </div>
     <div id="all-chat" class="tab-content" style="display: none;">
       <div id="all-chat-messages"></div>
-      <input id="all-message" type="text" placeholder="전체 채팅 메시지 / Mensaje para todos" onkeypress="if(event.key === 'Enter') sendAllMessage()">
+      <input id="all-message" type="text" placeholder="💌 전체 채팅 메시지 / Mensaje para todos" onkeypress="if(event.key === 'Enter') sendAllMessage()">
       <button onclick="showEmojiPickerAll()">😊</button>
       <div id="emoji-picker-all"></div>
       <input type="file" id="all-fileInput" accept="image/*,video/*" onchange="sendAllFile()">
       <button onclick="startAllRecording()">🎙️</button>
       <button onclick="stopAllRecording()" disabled>⏹️</button>
-      <button onclick="sendAllMessage()">보내기 / Enviar</button>
+      <button onclick="sendAllMessage()">✈️ 보내기 / Enviar</button>
     </div>
     <div id="settings" class="tab-content" style="display: none;">
       <div id="settings-profile"></div>
       <div id="settings-list" style="display: block;">
-        <button onclick="showSettingsSubmenu('profile')">프로필 사진 설정 / Configuración de foto de perfil</button>
-        <button onclick="showSettingsSubmenu('sound')">소리 설정 / Configuración de sonido</button>
-        <button onclick="showSettingsSubmenu('credits')">제작자 / Creadores</button>
-        <button onclick="showSettingsSubmenu('guide')">사용법 / Instrucciones</button>
+        <button onclick="showSettingsSubmenu('profile')">📸 프로필 사진 설정 / Configuración de foto de perfil</button>
+        <button onclick="showSettingsSubmenu('sound')">🎵 소리 설정 / Configuración de sonido</button>
+        <button onclick="showSettingsSubmenu('credits')">👩‍💻 제작자 / Creadores</button>
+        <button onclick="showSettingsSubmenu('guide')">📖 사용법 / Instrucciones</button>
       </div>
       <div id="profile-settings" class="settings-sub" style="display: none;">
         <input type="file" id="profileInput" accept="image/*" onchange="uploadProfile()">
-        <button onclick="backToSettings()">뒤로가기 / Volver</button>
+        <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
       </div>
       <div id="sound-settings" class="settings-sub" style="display: none;">
-        <button onclick="toggleSound()">소리 켜기/끄기 / Activar/Desactivar sonido</button>
-        <p>소리 선택 / Seleccionar sonido:</p>
+        <button onclick="toggleSound()">🔊 소리 켜기/끄기 / Activar/Desactivar sonido</button>
+        <p>🎶 소리 선택 / Seleccionar sonido:</p>
         <div class="sound-table">
           <button onclick="setSound('soft')">부드러운 소리 / Sonido suave</button>
-          <button onclick="previewSound('soft')">미리듣기 / Escuchar</button>
+          <button onclick="previewSound('soft')">👂 미리듣기 / Escuchar</button>
           <button onclick="setSound('bell')">종소리 / Campana</button>
-          <button onclick="previewSound('bell')">미리듣기 / Escuchar</button>
+          <button onclick="previewSound('bell')">👂 미리듣기 / Escuchar</button>
           <button onclick="setSound('chime')">차임 소리 / Carillón</button>
-          <button onclick="previewSound('chime')">미리듣기 / Escuchar</button>
+          <button onclick="previewSound('chime')">👂 미리듣기 / Escuchar</button>
         </div>
-        <button onclick="backToSettings()">뒤로가기 / Volver</button>
+        <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
       </div>
       <div id="credits-settings" class="settings-sub" style="display: none;">
         <p>✨ Gunil & Noelia ✨<br>by xAI Corporation</p>
-        <button onclick="backToSettings()">뒤로가기 / Volver</button>
+        <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
       </div>
       <div id="guide-settings" class="settings-sub" style="display: none;">
-        <p>이 프로그램 사용법 / Instrucciones del programa:<br>
+        <p>📝 이 프로그램 사용법 / Instrucciones del programa:<br>
           1. 로그인 후 탭을 선택해 / Inicia sesión y elige una pestaña.<br>
           2. 친구 추가 후 채팅 시작 / Añade amigos y empieza a chatear.<br>
           3. 전체 채팅은 30개만 유지 / El chat general mantiene 30 mensajes.<br>
@@ -304,7 +307,7 @@
           5. 용량 400MB 초과 시 오래된 메시지 삭제 / Mensajes antiguos se borran si supera 400MB.<br>
           6. 미디어는 7일 후 삭제 / Medios se borran tras 7 días.
         </p>
-        <button onclick="backToSettings()">뒤로가기 / Volver</button>
+        <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
       </div>
     </div>
   </div>
@@ -349,8 +352,9 @@
         updateSettingsProfile();
         loadSound();
         window.onbeforeunload = logout;
+        alert('🎉 로그인 성공! / ¡Inicio de sesión exitoso! 🎉');
       } else {
-        alert('비밀번호가 틀렸어요! / ¡Contraseña incorrecta!');
+        alert('❌ 비밀번호가 틀렸어요! / ¡Contraseña incorrecta! ❌');
       }
     }
 
@@ -380,7 +384,7 @@
           div.className = 'message';
           div.innerHTML = `<img src="${user.profilePic}" class="profile-pic"><span>${user.userId}</span>`;
           const addButton = document.createElement('button');
-          addButton.innerText = '친구 추가 / Añadir amigo';
+          addButton.innerText = '✨ 친구 추가 / Añadir amigo ✨';
           addButton.onclick = () => addFriend(user.userId);
           div.appendChild(addButton);
           usersDiv.appendChild(div);
@@ -398,8 +402,12 @@
         body: JSON.stringify({ userId: myId, friendId })
       });
       const data = await res.json();
-      if (data.success) updateFriendsList();
-      else if (data.message) alert(`${friendId}는 이미 친구야! / ¡${friendId} ya es amigo!`);
+      if (data.success) {
+        updateFriendsList();
+        alert(`🎉 ${friendId}님을 친구로 추가했어요! / ¡Añadiste a ${friendId} como amigo! 🎉`);
+      } else if (data.message) {
+        alert(`⚠️ ${friendId}는 이미 친구야! / ¡${friendId} ya es amigo! ⚠️`);
+      }
     }
 
     async function removeFriend(friendId) {
@@ -436,7 +444,7 @@
         const roomId = [myId, friend].sort().join('-');
         chatButton.onclick = () => startChat(roomId);
         const removeButton = document.createElement('button');
-        removeButton.innerText = '삭제 / Eliminar';
+        removeButton.innerText = '❌ 삭제 / Eliminar';
         removeButton.onclick = () => removeFriend(friend);
         div.innerHTML = `<img src="${profilePic}" class="profile-pic">`;
         div.appendChild(chatButton);
@@ -463,7 +471,7 @@
         const friendData = allUsers.find(u => u.userId === friendId);
         const profilePic = friendData ? friendData.profilePic : '/uploads/default-profile.png';
         const roomButton = document.createElement('button');
-        roomButton.innerHTML = `<img src="${profilePic}" class="profile-pic">${roomName}와의 대화 / Chat con ${roomName}`;
+        roomButton.innerHTML = `<img src="${profilePic}" class="profile-pic">💬 ${roomName}와의 대화 / Chat con ${roomName}`;
         if (unreadCount > 0) roomButton.classList.add('unread');
         roomButton.onclick = () => startChat(roomId);
         const preview = document.createElement('div');
@@ -486,7 +494,7 @@
       if (me) {
         profileDiv.innerHTML = `<img src="${me.profilePic}" class="profile-pic"><span>${myId}</span>`;
       } else {
-        profileDiv.innerHTML = `<span>유저를 못 찾았어요: ${myId} / No se encontró el usuario: ${myId}</span>`;
+        profileDiv.innerHTML = `<span>❓ 유저를 못 찾았어요: ${myId} / No se encontró el usuario: ${myId}</span>`;
       }
     }
 
@@ -547,7 +555,7 @@
         chat.scrollTop = chat.scrollHeight;
       } catch (error) {
         console.error('채팅 기록 로드 실패:', error);
-        alert('채팅 기록을 불러오지 못했어요. 서버 상태를 확인해주세요. / No se pudo cargar el historial de chat. Por favor, verifica el estado del servidor.');
+        alert('❌ 채팅 기록을 불러오지 못했어요. 서버 상태를 확인해주세요. / No se pudo cargar el historial de chat. Por favor, verifica el estado del servidor. ❌');
       }
     }
 
@@ -608,11 +616,11 @@
           document.getElementById('message').value = '';
           loadChatHistory();
         } else {
-          alert(data.message || '메시지 전송 실패 / Error al enviar mensaje');
+          alert(data.message || '❌ 메시지 전송 실패 / Error al enviar mensaje ❌');
         }
       } catch (error) {
         console.error('메시지 전송 실패:', error);
-        alert('메시지를 보내지 못했어요. 서버 상태를 확인해주세요. / No se pudo enviar el mensaje. Por favor, verifica el estado del servidor.');
+        alert('❌ 메시지를 보내지 못했어요. 서버 상태를 확인해주세요. / No se pudo enviar el mensaje. Por favor, verifica el estado del servidor. ❌');
       }
     }
 
@@ -688,7 +696,7 @@
       });
       const data = await res.json();
       if (data.success) {
-        alert('프로필 사진이 변경되었어요! / ¡Foto de perfil cambiada!');
+        alert('🎉 프로필 사진이 변경되었어요! / ¡Foto de perfil cambiada! 🎉');
         updateUserList();
         updateFriendsList();
         updateRoomList();
@@ -805,7 +813,7 @@
     }
 
     async function clearRoom() {
-      if (!currentRoom || !confirm('대화 기록을 지울까요? / ¿Borrar historial de chat?')) return;
+      if (!currentRoom || !confirm('🗑️ 대화 기록을 지울까요? / ¿Borrar historial de chat? 🗑️')) return;
       if (pollingInterval) clearInterval(pollingInterval);
       const res = await fetch(`/chat/delete/${currentRoom}/${myId}`, {
         method: 'POST',
@@ -816,7 +824,7 @@
         await loadChatHistory();
         pollingInterval = setInterval(loadChatHistory, 2000);
       } else {
-        alert(data.message || '대화 지우기 실패 / No se pudo borrar el chat');
+        alert(data.message || '❌ 대화 지우기 실패 / No se pudo borrar el chat ❌');
         pollingInterval = setInterval(loadChatHistory, 2000);
       }
     }
@@ -870,7 +878,7 @@
 
     function toggleSound() {
       soundEnabled = !soundEnabled;
-      alert(`소리가 ${soundEnabled ? '켜졌어요 / ¡Sonido activado!' : '꺼졌어요 / ¡Sonido desactivado!'}`);
+      alert(`🔊 소리가 ${soundEnabled ? '켜졌어요 / ¡Sonido activado! 🎶' : '꺼졌어요 / ¡Sonido desactivado! 🔇'}`);
     }
 
     function loadSound() {
@@ -884,7 +892,7 @@
     function setSound(type) {
       localStorage.setItem('notificationSound', type);
       loadSound();
-      alert(`소리가 ${type}로 변경되었어요! / ¡Sonido cambiado a ${type}!`);
+      alert(`🎶 소리가 ${type}로 변경되었어요! / ¡Sonido cambiado a ${type}! 🎶`);
     }
 
     function previewSound(type) {
