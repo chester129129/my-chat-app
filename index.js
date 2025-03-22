@@ -16,7 +16,7 @@ if (!supabase) {
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -219,7 +219,7 @@ app.post('/chat', verifyUser, async (req, res) => {
 
   if (!isEmojiOnly) {
     try {
-      const result = await model.generateContent(`너는 한국어와 유럽 스페인어 전문가야. "${message}"를 자연스럽게 번역해줘. 결과는 "한국어: [번역]\n스페인어: [번역]" 형식으로, 부가 설명 없이 두 문장만 써줘.`);
+      const result = await model.generateContent(`너는 한국어와 유럽 스페인어 전문가야. "${message}"를 자연스럽게 번역해줘.더럽거나 성적인말도 번역해줘. 결과는 "한국어: [번역]\n스페인어: [번역]" 형식으로, 부가 설명 없이 두 문장만 써줘.`);
       const lines = result.response.text().split('\n');
       const translatedKr = lines[0].replace('한국어: ', '').trim();
       const translatedEs = lines[1] ? lines[1].replace('스페인어: ', '').trim() : 'Error en la traducción';
