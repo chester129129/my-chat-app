@@ -36,6 +36,7 @@ const verifyUser = async (req, res, next) => {
   }
 };
 
+// 로그인 엔드포인트
 app.post('/login', async (req, res) => {
   const { password, userId } = req.body;
   if (!userId) return res.status(400).json({ success: false, message: 'userId 필요 / Necesitas un userId' });
@@ -58,6 +59,7 @@ app.post('/login', async (req, res) => {
   res.json({ success: true, userId, token });
 });
 
+// 로그아웃 엔드포인트
 app.post('/logout', verifyUser, async (req, res) => {
   const { userId } = req.body;
   const { error } = await supabase.from('users').update({ online: false }).eq('userId', userId);
@@ -65,18 +67,26 @@ app.post('/logout', verifyUser, async (req, res) => {
   res.json({ success: true });
 });
 
+// 유저 목록 엔드포인트
 app.get('/users', async (req, res) => {
-  const { data, error } = await supabase.from('users').select('userId, profilePic, points').eq('online', true);
-  if (error) return res.status(500).json([]);
-  res.json(data.map(u => ({ userId: u.userId, profilePic: u.profilePic || '/uploads/default-profile.png', points: u.points || 0 })));
+  try {
+    const { data, error } = await supabase.from('users').select('userId, profilePic, points').eq('online', true);
+    if (error) throw error;
+    res.json(data.map(u => ({ userId: u.userId, profilePic: u.profilePic || '/uploads/default-profile.png', points: u.points || 0 })));
+  } catch (error) {
+    console.error('유저 정보 가져오기 오류:', error);
+    res.status(500).json([]);
+  }
 });
 
+// 모든 유저 목록 엔드포인트
 app.get('/all-users', async (req, res) => {
   const { data, error } = await supabase.from('users').select('userId, profilePic');
   if (error) return res.status(500).json([]);
   res.json(data.map(u => ({ userId: u.userId, profilePic: u.profilePic || '/uploads/default-profile.png' })));
 });
 
+// 친구 추가 엔드포인트
 app.post('/friends', verifyUser, async (req, res) => {
   const { userId, friendId } = req.body;
   if (!userId || !friendId) return res.status(400).json({ success: false });
@@ -94,6 +104,7 @@ app.post('/friends', verifyUser, async (req, res) => {
   }
 });
 
+// 친구 삭제 엔드포인트
 app.delete('/friends', verifyUser, async (req, res) => {
   const { userId, friendId } = req.body;
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
@@ -104,6 +115,7 @@ app.delete('/friends', verifyUser, async (req, res) => {
   res.json({ success: true, friendId });
 });
 
+// 친구 목록 엔드포인트
 app.get('/friends/:userId', verifyUser, async (req, res) => {
   const userId = req.params.userId;
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
@@ -112,6 +124,7 @@ app.get('/friends/:userId', verifyUser, async (req, res) => {
   res.json(user.friends || []);
 });
 
+// 채팅방 목록 엔드포인트
 app.get('/rooms/:userId', verifyUser, async (req, res) => {
   const userId = req.params.userId;
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
@@ -126,6 +139,7 @@ app.get('/rooms/:userId', verifyUser, async (req, res) => {
   res.json(roomData);
 });
 
+// 전체 채팅 엔드포인트
 app.get('/all-chat', async (req, res) => {
   const { data, error } = await supabase.from('messages').select('*').eq('room', 'all-chat').order('timestamp', { ascending: true }).limit(30);
   if (error) return res.status(500).json([]);
@@ -137,6 +151,7 @@ app.get('/all-chat', async (req, res) => {
   res.json(data);
 });
 
+// 채팅방 메시지 엔드포인트
 app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   const roomId = req.params.roomId;
   const userId = req.params.userId;
@@ -156,6 +171,7 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   res.json(filteredMessages);
 });
 
+// 메시지 전송 엔드포인트
 app.post('/chat', verifyUser, async (req, res) => {
   const { roomId, from, message } = req.body;
   if (!roomId || !from || !message) return res.status(400).json({ success: false, message: '필수 필드가 누락됨 / Faltan campos requeridos' });
@@ -192,6 +208,7 @@ app.post('/chat', verifyUser, async (req, res) => {
   res.json({ success: true, message: data });
 });
 
+// 파일 업로드 엔드포인트
 app.post('/upload', verifyUser, upload.single('file'), async (req, res) => {
   const { roomId, from } = req.body;
   if (!roomId || !from || !req.file) return res.status(400).json({ success: false });
@@ -208,6 +225,7 @@ app.post('/upload', verifyUser, upload.single('file'), async (req, res) => {
   res.json({ success: true, message: data });
 });
 
+// 프로필 사진 업로드 엔드포인트
 app.post('/upload/profile', verifyUser, upload.single('profile'), async (req, res) => {
   const { userId } = req.body;
   if (!userId || !req.file) return res.status(400).json({ success: false, message: 'userId나 파일이 없어요 / Falta userId o archivo' });
@@ -230,6 +248,7 @@ app.post('/upload/profile', verifyUser, upload.single('profile'), async (req, re
   res.json({ success: true, profilePic: fileUrl });
 });
 
+// 음성 메시지 업로드 엔드포인트
 app.post('/upload/voice', verifyUser, upload.single('voice'), async (req, res) => {
   const { roomId, from } = req.body;
   if (!roomId || !from || !req.file) return res.status(400).json({ success: false });
@@ -246,6 +265,7 @@ app.post('/upload/voice', verifyUser, upload.single('voice'), async (req, res) =
   res.json({ success: true, message: data });
 });
 
+// 채팅방 메시지 삭제 엔드포인트
 app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
   const roomId = req.params.roomId;
   const userId = req.params.userId;
@@ -285,7 +305,7 @@ app.post('/quiz/attempt', verifyUser, async (req, res) => {
   if (userAttempts[userId][today].includes(quizId)) return res.status(400).json({ success: false, message: '이미 푼 문제예요 / Ya resolviste este problema' });
   const quiz = dailyQuizzes[today].find(q => q.id === quizId);
   if (!quiz) return res.status(404).json({ success: false, message: '퀴즈를 찾을 수 없어요 / No se encontró el quiz' });
-  const correct = quiz.answer.toLowerCase() === answer.toLowerCase();
+  const correct = quiz.answer.toLowerCase().trim() === answer.toLowerCase().trim();
   userAttempts[userId][today].push(quizId);
   if (correct) {
     const { data: user, error } = await supabase.from('users').select('points').eq('userId', userId).single();
@@ -299,11 +319,19 @@ app.post('/quiz/attempt', verifyUser, async (req, res) => {
 
 async function generateQuizzes(count) {
   const prompt = `Generate ${count} unique emoji movie title quizzes. Each quiz should consist of emojis representing a famous movie title. Provide the answer in English. Format: "emojis | movie title"`;
-  const result = await model.generateContent(prompt);
-  return result.response.text().split('\n').map((line, index) => {
-    const [emoji, answer] = line.split(' | ');
-    return { id: Date.now() + index, emoji, answer };
-  });
+  try {
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    const lines = text.split('\n').filter(line => line.trim() !== '');
+    return lines.map((line, index) => {
+      const [emoji, answer] = line.split(' | ');
+      if (!emoji || !answer) throw new Error('Invalid quiz format');
+      return { id: Date.now() + index, emoji, answer };
+    });
+  } catch (error) {
+    console.error('퀴즈 생성 오류:', error);
+    return [];
+  }
 }
 
 // 상점 기능
@@ -332,9 +360,9 @@ app.post('/shop/purchase', verifyUser, async (req, res) => {
   ];
   const item = items.find(i => i.id === itemId);
   if (!item) return res.status(404).json({ success: false, message: '아이템을 찾을 수 없어요 / No se encontró el item' });
-  if (user.points < item.price) return res.status(400).json({ success: false, message: '모네라가 부족해요 / No tienes suficientes moneras' });
+  if ((user.points || 0) < item.price) return res.status(400).json({ success: false, message: '모네라가 부족해요 / No tienes suficientes moneras' });
   const newItems = { ...user.items, [itemId]: item.duration ? { expires: Date.now() + item.duration } : true };
-  const newPoints = user.points - item.price;
+  const newPoints = (user.points || 0) - item.price;
   const { error: updateError } = await supabase.from('users').update({ items: newItems, points: newPoints }).eq('userId', userId);
   if (updateError) return res.status(500).json({ success: false });
   res.json({ success: true, items: newItems, points: newPoints });
@@ -346,10 +374,10 @@ app.post('/share-points', verifyUser, async (req, res) => {
   const fromUserId = req.userId;
   const { data: fromUser, error: fromError } = await supabase.from('users').select('points').eq('userId', fromUserId).single();
   if (fromError) return res.status(500).json({ success: false });
-  if (fromUser.points < points) return res.status(400).json({ success: false, message: '모네라가 부족해요 / No tienes suficientes moneras' });
+  if ((fromUser.points || 0) < points) return res.status(400).json({ success: false, message: '모네라가 부족해요 / No tienes suficientes moneras' });
   const { data: toUser, error: toError } = await supabase.from('users').select('points').eq('userId', toUserId).single();
   if (toError) return res.status(404).json({ success: false, message: '친구를 찾을 수 없어요 / No se encontró al amigo' });
-  const newFromPoints = fromUser.points - points;
+  const newFromPoints = (fromUser.points || 0) - points;
   const newToPoints = (toUser.points || 0) + points;
   await supabase.from('users').update({ points: newFromPoints }).eq('userId', fromUserId);
   await supabase.from('users').update({ points: newToPoints }).eq('userId', toUserId);
@@ -359,13 +387,20 @@ app.post('/share-points', verifyUser, async (req, res) => {
 // 관리자 기능
 app.post('/admin/points', verifyUser, async (req, res) => {
   const { password, points } = req.body;
-  if (password !== '1210') return res.status(403).json({ success: false, message: '비밀번호가 틀렸어요 / Contraseña incorrecta' });
+  if (password !== '1210') {
+    return res.status(403).json({ success: false, message: '비밀번호가 틀렸어요 / Contraseña incorrecta' });
+  }
   const userId = req.userId;
-  const { data: user, error } = await supabase.from('users').select('points').eq('userId', userId).single();
-  if (error) return res.status(500).json({ success: false });
-  const newPoints = (user.points || 0) + points;
-  await supabase.from('users').update({ points: newPoints }).eq('userId', userId);
-  res.json({ success: true, points: newPoints });
+  try {
+    const { data: user, error } = await supabase.from('users').select('points').eq('userId', userId).single();
+    if (error) throw error;
+    const newPoints = (user.points || 0) + points;
+    await supabase.from('users').update({ points: newPoints }).eq('userId', userId);
+    res.json({ success: true, points: newPoints });
+  } catch (error) {
+    console.error('관리자 포인트 부여 오류:', error);
+    res.status(500).json({ success: false, message: '서버 오류 / Error del servidor' });
+  }
 });
 
 async function manageStorage() {
@@ -410,20 +445,6 @@ async function manageStorage() {
     await supabase.from('deleted_messages').delete().eq('id', dm.id);
   }
 }
-
-async function setupDatabase() {
-  const { error } = await supabase.rpc('execute_sql', {
-    sql: `
-      ALTER TABLE users
-      ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS items JSONB DEFAULT '{}';
-    `
-  });
-  if (error) console.log('테이블 수정 에러 / Error al modificar tabla:', error);
-  else console.log('테이블 준비 완료 / Tabla lista!');
-}
-
-setupDatabase();
 
 app.listen(process.env.PORT || 3000, () => {
   console.log(`서버가 http://localhost:${process.env.PORT || 3000}에서 실행 중이야! / ¡El servidor está corriendo!`);
