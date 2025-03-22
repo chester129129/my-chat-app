@@ -4,130 +4,334 @@
   <title>채팅 프로그램 / Programa de chat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #f0f0f0; }
-    #login, #main { padding: 20px; }
-    #login { background: #fff; border-radius: 10px; }
-    #main { display: none; }
-    .tab-buttons { margin-bottom: 10px; }
-    .tab-buttons button { padding: 10px; margin-right: 5px; background: #ddd; border: none; border-radius: 5px; cursor: pointer; }
-    .tab-buttons button:hover { background: #ccc; }
-    .tab-content { display: none; background: #fff; padding: 10px; border-radius: 10px; }
-    #chat-messages, #all-chat-messages { height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; }
-    #chat-room { display: none; }
-    .message { margin: 5px 0; display: flex; align-items: center; }
-    .message img.profile-pic { width: 30px; height: 30px; border-radius: 50%; margin-right: 10px; }
-    .message-media { max-width: 200px; max-height: 200px; }
-    .timestamp { font-size: 0.8em; color: #888; margin-left: 10px; }
-    #message, #all-message { width: 70%; padding: 5px; }
-    button { padding: 5px 10px; margin: 5px; background: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    button:disabled { background: #ccc; cursor: not-allowed; }
-    #emoji-picker, #emoji-picker-all { display: none; position: absolute; background: #fff; border: 1px solid #ddd; padding: 10px; transform: translateX(-50%); }
-    #emoji-picker button, #emoji-picker-all button { font-size: 20px; margin: 5px; background: none; border: none; cursor: pointer; }
-    .unread { background: #ffcccc; }
-    #points { margin: 10px 0; font-weight: bold; }
+    body { 
+      font-family: 'Segoe UI', Arial, sans-serif; 
+      background: linear-gradient(135deg, #e0eafc, #cfdef3); 
+      margin: 0; 
+      padding: 10px; 
+      animation: backgroundShift 10s infinite alternate; 
+    }
+    @keyframes backgroundShift { 
+      0% { background: linear-gradient(135deg, #e0eafc, #cfdef3); } 
+      100% { background: linear-gradient(135deg, #cfdef3, #e0eafc); } 
+    }
+    .container { max-width: 1000px; margin: 0 auto; }
+    .tabs { 
+      display: flex; 
+      flex-wrap: wrap; 
+      background: #a3cffa; 
+      border-radius: 15px; 
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+      overflow: hidden; 
+    }
+    .tabs button { 
+      flex: 1; 
+      padding: 12px; 
+      border: none; 
+      background: #a3cffa; 
+      color: #333; 
+      font-weight: 600; 
+      cursor: pointer; 
+      transition: all 0.3s ease; 
+      font-size: 16px; 
+    }
+    .tabs button:hover { background: #89bffa; }
+    .tabs button.active { background: #6bafff; color: white; }
+    .tab-content { 
+      display: none; 
+      padding: 15px; 
+      background: white; 
+      border-radius: 15px; 
+      margin-top: 10px; 
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+      animation: fadeIn 0.3s ease; 
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    #chat-messages, #all-chat-messages { 
+      height: 60vh; 
+      overflow-y: auto; 
+      border: 1px solid #e0e0e0; 
+      padding: 10px; 
+      background: #fafafa; 
+      border-radius: 10px; 
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); 
+    }
+    #chat-room button, #all-chat button { 
+      background: #ffd1dc; 
+      border: none; 
+      padding: 10px 15px; 
+      margin: 5px; 
+      border-radius: 10px; 
+      cursor: pointer; 
+      color: #333; 
+      transition: all 0.3s ease; 
+      font-size: 16px; 
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+    }
+    #chat-room button:hover, #all-chat button:hover { background: #ffb6c1; transform: scale(1.05); }
+    #users button, #friends button, #settings-content button { 
+      background: linear-gradient(135deg, #ffd1dc, #a3cffa); 
+      border: none; 
+      padding: 12px 18px; 
+      margin: 8px; 
+      border-radius: 12px; 
+      cursor: pointer; 
+      color: #333; 
+      transition: all 0.3s ease; 
+      font-size: 16px; 
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15); 
+    }
+    #users button:hover, #friends button:hover, #settings-content button:hover { 
+      transform: scale(1.05); 
+      box-shadow: 0 5px 12px rgba(0,0,0,0.2); 
+    }
+    img.profile-pic { width: 30px; height: 30px; border-radius: 50%; vertical-align: middle; margin-right: 8px; }
+    img.message-media, video { max-width: 200px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .unread { color: #ff6b6b; font-weight: 600; }
+    #emoji-picker, #emoji-picker-all { 
+      display: none; 
+      position: absolute; 
+      background: white; 
+      border: 1px solid #ddd; 
+      padding: 8px; 
+      border-radius: 10px; 
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
+    }
+    input[type="text"], input[type="file"] { 
+      padding: 10px; 
+      margin: 5px; 
+      border: 1px solid #ddd; 
+      border-radius: 10px; 
+      width: calc(100% - 22px); 
+      box-sizing: border-box; 
+      font-size: 16px; 
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+    }
+    #login { 
+      background: #fff3e6; 
+      padding: 30px; 
+      border-radius: 20px; 
+      box-shadow: 0 6px 15px rgba(0,0,0,0.1); 
+      text-align: center; 
+      margin: 40px auto; 
+      max-width: 400px; 
+      position: relative; 
+      overflow: hidden; 
+    }
+    #login::before { 
+      content: '🌟✨😊 Bienvenido / 환영합니다 😊✨🌟'; 
+      position: absolute; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      text-align: center; 
+      font-size: 18px; 
+      color: #ff6b6b; 
+      animation: sparkle 2s infinite; 
+    }
+    @keyframes sparkle { 
+      0%, 100% { opacity: 1; } 
+      50% { opacity: 0.5; } 
+    }
+    #login input[type="text"], #login input[type="password"] { 
+      background: #fff; 
+      border: 2px solid #ffd1dc; 
+      padding: 12px; 
+      font-size: 16px; 
+    }
+    #login button { 
+      background: linear-gradient(135deg, #ffd1dc, #a3cffa); 
+      padding: 12px 20px; 
+      border: none; 
+      border-radius: 12px; 
+      color: #333; 
+      font-weight: 600; 
+      cursor: pointer; 
+      transition: all 0.3s ease; 
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15); 
+    }
+    #login button:hover { transform: scale(1.05); box-shadow: 0 5px 12px rgba(0,0,0,0.2); }
+    #login label { 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      margin: 10px 0; 
+      font-size: 14px; 
+      color: #666; 
+    }
+    #login input[type="checkbox"] { 
+      margin-right: 8px; 
+    }
+    #settings-profile { 
+      display: flex; 
+      align-items: center; 
+      padding: 15px; 
+      background: linear-gradient(135deg, #a3cffa, #ffd1dc); 
+      border-radius: 10px; 
+      margin-bottom: 15px; 
+      box-shadow: 0 3px 8px rgba(0,0,0,0.1); 
+    }
+    #settings-profile img { width: 60px; height: 60px; border-radius: 50%; margin-right: 15px; }
+    #settings-profile span { font-size: 1.2em; font-weight: bold; color: #333; }
+    .settings-sub { 
+      background: linear-gradient(135deg, #ffd1dc, #a3cffa); 
+      padding: 20px; 
+      border-radius: 15px; 
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+      text-align: center; 
+    }
+    .settings-sub button { 
+      background: #fff3e6; 
+      color: #333; 
+      font-weight: 600; 
+      padding: 12px 20px; 
+      border-radius: 12px; 
+      margin: 10px; 
+      font-size: 16px; 
+      transition: all 0.3s ease; 
+      box-shadow: 0 3px 8px rgba(0,0,0,0.1); 
+    }
+    .settings-sub button:hover { transform: scale(1.05); box-shadow: 0 5px 12px rgba(0,0,0,0.2); }
+    .settings-sub p { font-size: 1em; color: #333; }
+    .sound-table { 
+      display: grid; 
+      grid-template-columns: 1fr 1fr; 
+      gap: 10px; 
+      margin: 15px 0; 
+    }
+    .sound-table button { 
+      padding: 10px; 
+      font-size: 16px; 
+    }
+    .message { padding: 8px; margin: 5px 0; border-radius: 8px; background: #f0f4f8; font-size: 14px; }
+    .timestamp { font-size: 0.7em; color: #666; }
+    .settings-btn { 
+      background: linear-gradient(135deg, #ffebcc, #cce5ff); 
+      border: none; 
+      padding: 15px 25px; 
+      margin: 10px; 
+      border-radius: 15px; 
+      cursor: pointer; 
+      color: #333; 
+      font-weight: 600; 
+      font-size: 18px; 
+      transition: all 0.3s ease; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+    }
+    .settings-btn:hover { 
+      transform: scale(1.05); 
+      box-shadow: 0 6px 15px rgba(0,0,0,0.2); 
+    }
+
+    @media (max-width: 600px) {
+      body { padding: 5px; }
+      .tabs { flex-direction: column; }
+      .tabs button { padding: 14px; font-size: 18px; }
+      #chat-messages, #all-chat-messages { height: 50vh; }
+      #chat-room button, #all-chat button { padding: 12px 18px; font-size: 18px; }
+      #users button, #friends button, #settings-content button { padding: 14px 20px; font-size: 18px; }
+      input[type="text"], input[type="file"] { font-size: 18px; }
+      #login { padding: 25px; max-width: 90%; }
+      #login::before { font-size: 16px; top: 5px; }
+      #settings-profile img { width: 50px; height: 50px; }
+      #settings-profile span { font-size: 1em; }
+      .settings-sub button { padding: 14px 20px; font-size: 18px; }
+      .message { font-size: 16px; }
+      .sound-table { grid-template-columns: 1fr; }
+      .settings-btn { padding: 12px 20px; font-size: 16px; }
+    }
   </style>
 </head>
 <body>
   <div id="login">
-    <h2>로그인 / Iniciar sesión</h2>
-    <input type="text" id="userId" placeholder="유저 ID / ID de usuario"><br>
-    <input type="password" id="password" placeholder="비밀번호 / Contraseña"><br>
-    <label><input type="checkbox" id="rememberMe"> 기억하기 / Recordarme</label><br>
+    <input id="password" type="password" placeholder="비밀번호 / Contraseña">
+    <input id="userId" type="text" placeholder="아이디 / ID">
+    <label><input id="rememberMe" type="checkbox"> 나 기억하기 / Recordarme</label>
     <button onclick="login()">로그인 / Iniciar sesión</button>
   </div>
-  <div id="main">
-    <div id="points">내 모네라 / Mis moneras: <span id="points-value">0</span></div>
-    <div class="tab-buttons">
-      <button onclick="showTab('chat')">채팅 / Chat</button>
-      <button onclick="showTab('friends')">친구 / Amigos</button>
-      <button onclick="showTab('users')">유저 / Usuarios</button>
-      <button onclick="showTab('all-chat')">전체 채팅 / Chat general</button>
-      <button onclick="showTab('quiz')">퀴즈 / Quiz</button>
-      <button onclick="showTab('shop')">상점 / Tienda</button>
-      <button onclick="showTab('settings')">설정 / Configuración</button>
+  <div id="main" style="display: none;" class="container">
+    <div class="tabs">
+      <button onclick="showTab('users')">👥 접속 중인 사람들 / Personas conectadas</button>
+      <button onclick="showTab('friends')">🌟 내 친구들 / Mis amigos</button>
+      <button onclick="showTab('chat')">💬 채팅 / Chat</button>
+      <button onclick="showTab('all-chat')">🌐 전체 채팅 / Chat general</button>
+      <button onclick="showTab('settings')">⚙️ 설정 / Configuración</button>
     </div>
-    <div id="chat" class="tab-content">
-      <div id="room-list"></div>
-      <div id="chat-room">
-        <button onclick="backToRooms()">뒤로 / Volver</button>
+    <div id="users" class="tab-content" style="display: block;"></div>
+    <div id="friends" class="tab-content" style="display: none;"></div>
+    <div id="chat" class="tab-content" style="display: none;">
+      <div id="room-list" style="display: block;"></div>
+      <div id="chat-room" style="display: none;">
+        <button onclick="backToRooms()">⬅️ 뒤로가기 / Volver</button>
+        <button onclick="clearRoom()">🗑️ 대화 지우기 / Borrar chat</button>
         <div id="chat-messages"></div>
-        <select id="color-select" onchange="applyColor()"></select>
-        <input type="text" id="message" placeholder="메시지 입력 / Escribe un mensaje">
-        <button onclick="sendMessage()">보내기 / Enviar</button>
+        <input id="message" type="text" placeholder="메시지 입력 / Escribe un mensaje" onkeypress="if(event.key === 'Enter') sendMessage()">
         <button onclick="showEmojiPicker()">😊</button>
         <div id="emoji-picker"></div>
-        <input type="file" id="fileInput">
-        <button onclick="sendFile()">파일 보내기 / Enviar archivo</button>
-        <button onclick="startRecording()">🎙️ 녹음 시작 / Iniciar grabación</button>
-        <button onclick="stopRecording()" disabled>녹음 중지 / Detener grabación</button>
-        <button onclick="clearRoom()">대화 지우기 / Borrar chat</button>
+        <input type="file" id="fileInput" accept="image/*,video/*" onchange="sendFile()">
+        <button onclick="startRecording()">🎙️</button>
+        <button onclick="stopRecording()" disabled>⏹️</button>
+        <button onclick="sendMessage()">✈️ 보내기 / Enviar</button>
       </div>
     </div>
-    <div id="friends" class="tab-content"></div>
-    <div id="users" class="tab-content"></div>
-    <div id="all-chat" class="tab-content">
+    <div id="all-chat" class="tab-content" style="display: none;">
       <div id="all-chat-messages"></div>
-      <select id="all-color-select" onchange="applyAllColor()"></select>
-      <input type="text" id="all-message" placeholder="전체 메시지 입력 / Escribe un mensaje general">
-      <button onclick="sendAllMessage()">보내기 / Enviar</button>
+      <input id="all-message" type="text" placeholder="전체 채팅 메시지 / Mensaje para todos" onkeypress="if(event.key === 'Enter') sendAllMessage()">
       <button onclick="showEmojiPickerAll()">😊</button>
       <div id="emoji-picker-all"></div>
-      <input type="file" id="all-fileInput">
-      <button onclick="sendAllFile()">파일 보내기 / Enviar archivo</button>
-      <button onclick="startAllRecording()">🎙️ 녹음 시작 / Iniciar grabación</button>
-      <button onclick="stopAllRecording()" disabled>녹음 중지 / Detener grabación</button>
+      <input type="file" id="all-fileInput" accept="image/*,video/*" onchange="sendAllFile()">
+      <button onclick="startAllRecording()">🎙️</button>
+      <button onclick="stopAllRecording()" disabled>⏹️</button>
+      <button onclick="sendAllMessage()">✈️ 보내기 / Enviar</button>
     </div>
-    <div id="quiz" class="tab-content">
-      <h3>오늘의 퀴즈 / Quiz del día</h3>
-      <div id="quiz-list"></div>
-    </div>
-    <div id="shop" class="tab-content">
-      <h3>상점 / Tienda</h3>
-      <div id="shop-items"></div>
-    </div>
-    <div id="settings" class="tab-content">
-      <div id="settings-list">
-        <button onclick="showSettingsSubmenu('profile')">프로필 / Perfil</button>
-        <button onclick="showSettingsSubmenu('sound')">소리 / Sonido</button>
-        <button onclick="showSettingsSubmenu('credits')">제작진 / Créditos</button>
-        <button onclick="showSettingsSubmenu('guide')">가이드 / Guía</button>
-        <button onclick="showSettingsSubmenu('admin')">관리자 / Admin</button>
+    <div id="settings" class="tab-content" style="display: none;">
+      <div id="settings-profile"></div>
+      <div id="settings-list" style="display: block;">
+        <button class="settings-btn" onclick="showSettingsSubmenu('profile')">📸 프로필 사진 설정 / Configuración de foto de perfil</button>
+        <button class="settings-btn" onclick="showSettingsSubmenu('sound')">🎶 소리 설정 / Configuración de sonido</button>
+        <button class="settings-btn" onclick="showSettingsSubmenu('credits')">👩‍💻 제작자 / Creadores</button>
+        <button class="settings-btn" onclick="showSettingsSubmenu('guide')">📖 사용법 / Instrucciones</button>
       </div>
-      <div id="profile-settings" style="display:none;">
-        <button onclick="backToSettings()">뒤로 / Volver</button>
-        <div id="settings-profile"></div>
-        <input type="file" id="profileInput">
-        <button onclick="uploadProfile()">프로필 사진 변경 / Cambiar foto de perfil</button>
+      <div id="profile-settings" class="settings-sub" style="display: none;">
+        <input type="file" id="profileInput" accept="image/*" onchange="uploadProfile()">
+        <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
       </div>
-      <div id="sound-settings" style="display:none;">
-        <button onclick="backToSettings()">뒤로 / Volver</button>
-        <button onclick="toggleSound()">소리 끄기/켜기 / Desactivar/Activar sonido</button>
-        <button onclick="setSound('soft')">부드러운 소리 / Sonido suave</button>
-        <button onclick="previewSound('soft')">미리듣기 / Preescuchar</button>
-        <button onclick="setSound('bell')">벨 소리 / Sonido de campana</button>
-        <button onclick="previewSound('bell')">미리듣기 / Preescuchar</button>
-        <button onclick="setSound('chime')">차임 소리 / Sonido de carillón</button>
-        <button onclick="previewSound('chime')">미리듣기 / Preescuchar</button>
+      <div id="sound-settings" class="settings-sub" style="display: none;">
+        <button onclick="toggleSound()">🔊 소리 켜기/끄기 / Activar/Desactivar sonido</button>
+        <p>소리 선택 / Seleccionar sonido:</p>
+        <div class="sound-table">
+          <button onclick="setSound('soft')">🎵 부드러운 소리 / Sonido suave</button>
+          <button onclick="previewSound('soft')">👂 미리듣기 / Escuchar</button>
+          <button onclick="setSound('bell')">🔔 종소리 / Campana</button>
+          <button onclick="previewSound('bell')">👂 미리듣기 / Escuchar</button>
+          <button onclick="setSound('chime')">🎶 차임 소리 / Carillón</button>
+          <button onclick="previewSound('chime')">👂 미리듣기 / Escuchar</button>
+        </div>
+        <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
       </div>
-      <div id="credits-settings" style="display:none;">
-        <button onclick="backToSettings()">뒤로 / Volver</button>
-        <p>제작: 나 / Creado por: Yo</p>
+      <div id="credits-settings" class="settings-sub" style="display: none;">
+        <p>✨ Gunil & Noelia ✨<br>by xAI Corporation</p>
+        <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
       </div>
-      <div id="guide-settings" style="display:none;">
-        <button onclick="backToSettings()">뒤로 / Volver</button>
-        <p>가이드는 아직 없어요 / La guía aún no está disponible</p>
-      </div>
-      <div id="admin-settings" style="display:none;">
-        <button onclick="backToSettings()">뒤로 / Volver</button>
-        <input type="password" id="admin-password" placeholder="관리자 비밀번호 / Contraseña de admin">
-        <input type="number" id="admin-points" placeholder="포인트 / Puntos">
-        <button onclick="adminGetPoints()">포인트 받기 / Obtener puntos</button>
+      <div id="guide-settings" class="settings-sub" style="display: none;">
+        <p>이 프로그램 사용법 / Instrucciones del programa:<br>
+          1. 로그인 후 탭을 선택해 / Inicia sesión y elige una pestaña.<br>
+          2. 친구 추가 후 채팅 시작 / Añade amigos y empieza a chatear.<br>
+          3. 전체 채팅은 30개만 유지 / El chat general mantiene 30 mensajes.<br>
+          4. 설정에서 사진, 소리 변경 / Cambia foto y sonido en configuración.<br>
+          5. 용량 400MB 초과 시 오래된 메시지 삭제 / Mensajes antiguos se borran si supera 400MB.<br>
+          6. 미디어는 7일 후 삭제 / Medios se borran tras 7 días.
+        </p>
+        <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
       </div>
     </div>
   </div>
   <audio id="notification"></audio>
   <script>
-    let myId, currentRoom, pollingInterval, allChatInterval, mediaRecorder, audioChunks = [], soundEnabled = true, token, lastMessageCount = 0, lastAllMessageCount = 0, items = {};
+    let myId, currentRoom, pollingInterval, allChatInterval, mediaRecorder, audioChunks = [], soundEnabled = true, token, lastMessageCount = 0, lastAllMessageCount = 0;
 
     window.onload = () => {
       const savedUserId = localStorage.getItem('savedUserId');
@@ -165,8 +369,6 @@
         updateUserList();
         updateSettingsProfile();
         loadSound();
-        updatePoints();
-        setInterval(updatePoints, 5000);
         window.onbeforeunload = logout;
       } else {
         alert('비밀번호가 틀렸어요! / ¡Contraseña incorrecta!');
@@ -176,34 +378,44 @@
     async function logout() {
       await fetch('/logout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ userId: myId })
       });
       localStorage.removeItem('token');
     }
 
     async function updateUserList() {
-      const res = await fetch('/users', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch('/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const users = await res.json();
       const usersDiv = document.getElementById('users');
       usersDiv.innerHTML = '';
-      users.filter(user => user.userId !== myId).forEach(user => {
-        const div = document.createElement('div');
-        div.className = 'message';
-        div.innerHTML = `<img src="${user.profilePic}" class="profile-pic"><span>${user.userId}</span>`;
-        const addButton = document.createElement('button');
-        addButton.innerText = '친구 추가 / Añadir amigo';
-        addButton.onclick = () => addFriend(user.userId);
-        div.appendChild(addButton);
-        usersDiv.appendChild(div);
-      });
+      users
+        .filter(user => user.userId !== myId)
+        .forEach(user => {
+          const div = document.createElement('div');
+          div.className = 'message';
+          div.innerHTML = `<img src="${user.profilePic}" class="profile-pic"><span>${user.userId}</span>`;
+          const addButton = document.createElement('button');
+          addButton.innerText = '친구 추가 / Añadir amigo';
+          addButton.onclick = () => addFriend(user.userId);
+          div.appendChild(addButton);
+          usersDiv.appendChild(div);
+        });
       updateFriendsList();
     }
 
     async function addFriend(friendId) {
       const res = await fetch('/friends', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ userId: myId, friendId })
       });
       const data = await res.json();
@@ -214,7 +426,10 @@
     async function removeFriend(friendId) {
       const res = await fetch('/friends', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ userId: myId, friendId })
       });
       const data = await res.json();
@@ -222,9 +437,13 @@
     }
 
     async function updateFriendsList() {
-      const resFriends = await fetch(`/friends/${myId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const resFriends = await fetch(`/friends/${myId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const friends = await resFriends.json();
-      const resUsers = await fetch('/all-users', { headers: { 'Authorization': `Bearer ${token}` } });
+      const resUsers = await fetch('/all-users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const allUsers = await resUsers.json();
       const friendsDiv = document.getElementById('friends');
       friendsDiv.innerHTML = '';
@@ -240,21 +459,21 @@
         const removeButton = document.createElement('button');
         removeButton.innerText = '삭제 / Eliminar';
         removeButton.onclick = () => removeFriend(friend);
-        const shareButton = document.createElement('button');
-        shareButton.innerText = '모네라 주기 / Dar moneras';
-        shareButton.onclick = () => sharePoints(friend);
         div.innerHTML = `<img src="${profilePic}" class="profile-pic">`;
         div.appendChild(chatButton);
         div.appendChild(removeButton);
-        div.appendChild(shareButton);
         friendsDiv.appendChild(div);
       });
     }
 
     async function updateRoomList() {
-      const resRooms = await fetch(`/rooms/${myId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const resRooms = await fetch(`/rooms/${myId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const roomData = await resRooms.json();
-      const resUsers = await fetch('/all-users', { headers: { 'Authorization': `Bearer ${token}` } });
+      const resUsers = await fetch('/all-users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const allUsers = await resUsers.json();
       const roomList = document.getElementById('room-list');
       roomList.innerHTML = '';
@@ -279,12 +498,17 @@
     }
 
     async function updateSettingsProfile() {
-      const res = await fetch('/users', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch('/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const users = await res.json();
       const me = users.find(u => u.userId === myId);
       const profileDiv = document.getElementById('settings-profile');
-      if (me) profileDiv.innerHTML = `<img src="${me.profilePic}" class="profile-pic"><span>${myId}</span>`;
-      else profileDiv.innerHTML = `<span>유저를 못 찾았어요: ${myId} / No se encontró el usuario: ${myId}</span>`;
+      if (me) {
+        profileDiv.innerHTML = `<img src="${me.profilePic}" class="profile-pic"><span>${myId}</span>`;
+      } else {
+        profileDiv.innerHTML = `<span>유저를 못 찾았어요: ${myId} / No se encontró el usuario: ${myId}</span>`;
+      }
     }
 
     async function startChat(roomId) {
@@ -295,7 +519,6 @@
       document.getElementById('room-list').style.display = 'none';
       document.getElementById('chat-room').style.display = 'block';
       loadChatHistory();
-      loadColorOptions();
       if (pollingInterval) clearInterval(pollingInterval);
       pollingInterval = setInterval(loadChatHistory, 2000);
     }
@@ -303,10 +526,19 @@
     async function loadChatHistory() {
       if (!currentRoom) return;
       try {
-        const res = await fetch(`/chat/${currentRoom}/${myId}`, { headers: { 'Authorization': `Bearer ${token}`, 'Cache-Control': 'no-cache' } });
-        if (!res.ok) throw new Error(`서버 응답 실패: ${res.status}`);
+        const res = await fetch(`/chat/${currentRoom}/${myId}`, {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Cache-Control': 'no-cache'
+          }
+        });
+        if (!res.ok) {
+          throw new Error(`서버 응답 실패: ${res.status}`);
+        }
         const messages = await res.json();
-        const resUsers = await fetch('/all-users', { headers: { 'Authorization': `Bearer ${token}` } });
+        const resUsers = await fetch('/all-users', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         const allUsers = await resUsers.json();
         const chat = document.getElementById('chat-messages');
         const messageCount = messages.length;
@@ -335,14 +567,19 @@
         });
         chat.scrollTop = chat.scrollHeight;
       } catch (error) {
-        alert('채팅 기록을 불러오지 못했어요. 서버 상태를 확인해주세요. / No se pudo cargar el historial de chat.');
+        console.error('채팅 기록 로드 실패:', error);
+        alert('채팅 기록을 불러오지 못했어요. 서버 상태를 확인해주세요. / No se pudo cargar el historial de chat. Por favor, verifica el estado del servidor.');
       }
     }
 
     async function loadAllChat() {
-      const resMessages = await fetch('/all-chat', { headers: { 'Authorization': `Bearer ${token}` } });
+      const resMessages = await fetch('/all-chat', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const messages = await resMessages.json();
-      const resUsers = await fetch('/all-users', { headers: { 'Authorization': `Bearer ${token}` } });
+      const resUsers = await fetch('/all-users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const allUsers = await resUsers.json();
       const chat = document.getElementById('all-chat-messages');
       const messageCount = messages.length;
@@ -375,17 +612,28 @@
     async function sendMessage() {
       const message = document.getElementById('message').value;
       if (!currentRoom || !message) return;
-      const res = await fetch('/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ roomId: currentRoom, from: myId, message })
-      });
-      const data = await res.json();
-      if (data.success) {
-        document.getElementById('message').value = '';
-        loadChatHistory();
-      } else {
-        alert(data.message || '메시지 전송 실패 / Error al enviar mensaje');
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ roomId: currentRoom, from: myId, message })
+        });
+        if (!res.ok) {
+          throw new Error(`서버 응답 실패: ${res.status}`);
+        }
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('message').value = '';
+          loadChatHistory();
+        } else {
+          alert(data.message || '메시지 전송 실패 / Error al enviar mensaje');
+        }
+      } catch (error) {
+        console.error('메시지 전송 실패:', error);
+        alert('메시지를 보내지 못했어요. 서버 상태를 확인해주세요. / No se pudo enviar el mensaje. Por favor, verifica el estado del servidor.');
       }
     }
 
@@ -394,7 +642,10 @@
       if (!message) return;
       const res = await fetch('/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ roomId: 'all-chat', from: myId, message })
       });
       const data = await res.json();
@@ -412,7 +663,11 @@
       formData.append('file', file);
       formData.append('roomId', currentRoom);
       formData.append('from', myId);
-      const res = await fetch('/upload', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+      const res = await fetch('/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
       const data = await res.json();
       if (data.success) {
         fileInput.value = '';
@@ -428,7 +683,11 @@
       formData.append('file', file);
       formData.append('roomId', 'all-chat');
       formData.append('from', myId);
-      const res = await fetch('/upload', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+      const res = await fetch('/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
       const data = await res.json();
       if (data.success) {
         fileInput.value = '';
@@ -443,7 +702,11 @@
       const formData = new FormData();
       formData.append('profile', file);
       formData.append('userId', myId);
-      const res = await fetch('/upload/profile', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+      const res = await fetch('/upload/profile', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
       const data = await res.json();
       if (data.success) {
         alert('프로필 사진이 변경되었어요! / ¡Foto de perfil cambiada!');
@@ -460,11 +723,7 @@
       const picker = document.getElementById('emoji-picker');
       picker.style.display = picker.style.display === 'block' ? 'none' : 'block';
       picker.innerHTML = '';
-      const defaultEmojis = ['😊', '😂', '😍', '😢', '👍', '👎', '❤️', '🎉'];
-      const purchasedEmojis = Object.keys(items).filter(id => items[id] === true && id.startsWith('emoji')).map(id => ({
-        emoji1: '😊', emoji2: '😂'
-      }[id]));
-      const emojis = [...defaultEmojis, ...purchasedEmojis];
+      const emojis = ['😊', '😂', '😍', '😢', '👍', '👎', '❤️', '🎉'];
       emojis.forEach(emoji => {
         const btn = document.createElement('button');
         btn.innerText = emoji;
@@ -482,11 +741,7 @@
       const picker = document.getElementById('emoji-picker-all');
       picker.style.display = picker.style.display === 'block' ? 'none' : 'block';
       picker.innerHTML = '';
-      const defaultEmojis = ['😊', '😂', '😍', '😢', '👍', '👎', '❤️', '🎉'];
-      const purchasedEmojis = Object.keys(items).filter(id => items[id] === true && id.startsWith('emoji')).map(id => ({
-        emoji1: '😊', emoji2: '😂'
-      }[id]));
-      const emojis = [...defaultEmojis, ...purchasedEmojis];
+      const emojis = ['😊', '😂', '😍', '😢', '👍', '👎', '❤️', '🎉'];
       emojis.forEach(emoji => {
         const btn = document.createElement('button');
         btn.innerText = emoji;
@@ -524,9 +779,15 @@
       formData.append('voice', audioBlob, 'voice.wav');
       formData.append('roomId', currentRoom);
       formData.append('from', myId);
-      const res = await fetch('/upload/voice', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+      const res = await fetch('/upload/voice', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
       const data = await res.json();
-      if (data.success) loadChatHistory();
+      if (data.success) {
+        loadChatHistory();
+      }
     }
 
     async function startAllRecording() {
@@ -553,15 +814,24 @@
       formData.append('voice', audioBlob, 'voice.wav');
       formData.append('roomId', 'all-chat');
       formData.append('from', myId);
-      const res = await fetch('/upload/voice', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+      const res = await fetch('/upload/voice', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
       const data = await res.json();
-      if (data.success) loadAllChat();
+      if (data.success) {
+        loadAllChat();
+      }
     }
 
     async function clearRoom() {
       if (!currentRoom || !confirm('대화 기록을 지울까요? / ¿Borrar historial de chat?')) return;
       if (pollingInterval) clearInterval(pollingInterval);
-      const res = await fetch(`/chat/delete/${currentRoom}/${myId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch(`/chat/delete/${currentRoom}/${myId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
       if (data.success) {
         await loadChatHistory();
@@ -587,20 +857,14 @@
         updateUserList();
       } else if (tabName === 'all-chat') {
         loadAllChat();
-        loadColorOptions();
         if (allChatInterval) clearInterval(allChatInterval);
         allChatInterval = setInterval(loadAllChat, 2000);
-      } else if (tabName === 'quiz') {
-        loadQuiz();
-      } else if (tabName === 'shop') {
-        loadShop();
       } else if (tabName === 'settings') {
         document.getElementById('settings-list').style.display = 'block';
         document.getElementById('profile-settings').style.display = 'none';
         document.getElementById('sound-settings').style.display = 'none';
         document.getElementById('credits-settings').style.display = 'none';
         document.getElementById('guide-settings').style.display = 'none';
-        document.getElementById('admin-settings').style.display = 'none';
       }
     }
 
@@ -623,7 +887,6 @@
       document.getElementById('sound-settings').style.display = 'none';
       document.getElementById('credits-settings').style.display = 'none';
       document.getElementById('guide-settings').style.display = 'none';
-      document.getElementById('admin-settings').style.display = 'none';
     }
 
     function toggleSound() {
@@ -661,136 +924,6 @@
     function resumePolling() {
       if (currentRoom) pollingInterval = setInterval(loadChatHistory, 2000);
       if (document.getElementById('all-chat').style.display === 'block') allChatInterval = setInterval(loadAllChat, 2000);
-    }
-
-    async function updatePoints() {
-      const res = await fetch('/users', { headers: { 'Authorization': `Bearer ${token}` } });
-      const users = await res.json();
-      const me = users.find(u => u.userId === myId);
-      document.getElementById('points-value').innerText = me ? (me.points || 0) : 0;
-      items = me ? me.items || {} : {};
-    }
-
-    async function loadQuiz() {
-      const res = await fetch('/quiz', { headers: { 'Authorization': `Bearer ${token}` } });
-      const quizzes = await res.json();
-      const quizList = document.getElementById('quiz-list');
-      quizList.innerHTML = '';
-      if (!quizzes || quizzes.length === 0) {
-        quizList.innerHTML = '<p>오늘의 퀴즈가 없습니다. / No hay quizzes para hoy.</p>';
-        return;
-      }
-      quizzes.forEach(q => {
-        if (q.emoji && q.id) {
-          const div = document.createElement('div');
-          div.innerHTML = `<p>${q.emoji}</p><input type="text" id="answer-${q.id}"><button onclick="submitAnswer(${q.id})">제출 / Enviar</button>`;
-          quizList.appendChild(div);
-        }
-      });
-    }
-
-    async function submitAnswer(quizId) {
-      const answer = document.getElementById(`answer-${quizId}`).value;
-      const res = await fetch('/quiz/attempt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ quizId, answer })
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert(data.correct ? '정답! 10 모네라 받았어요! / ¡Correcto! ¡Recibiste 10 moneras!' : '오답! / ¡Incorrecto!');
-        loadQuiz();
-        updatePoints();
-      }
-    }
-
-    async function loadShop() {
-      const res = await fetch('/shop', { headers: { 'Authorization': `Bearer ${token}` } });
-      const shopItems = await res.json();
-      const shopDiv = document.getElementById('shop-items');
-      shopDiv.innerHTML = '';
-      shopItems.forEach(item => {
-        const div = document.createElement('div');
-        div.innerHTML = `<p>${item.name} - ${item.price} 모네라 / Moneras</p><button onclick="purchaseItem('${item.id}')">구매 / Comprar</button>`;
-        shopDiv.appendChild(div);
-      });
-    }
-
-    async function purchaseItem(itemId) {
-      const res = await fetch('/shop/purchase', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ itemId })
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('구매 성공! / ¡Compra exitosa!');
-        updatePoints();
-        loadShop();
-        loadColorOptions();
-      } else {
-        alert(data.message || '구매 실패 / Compra fallida');
-      }
-    }
-
-    async function sharePoints(friendId) {
-      const points = parseInt(prompt('몇 모네라를 줄까요? / ¿Cuántas moneras quieres dar?'));
-      if (!points || points <= 0) return;
-      const res = await fetch('/share-points', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ toUserId: friendId, points })
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('모네라를 보냈어요! / ¡Moneras enviadas!');
-        updatePoints();
-      } else {
-        alert(data.message || '모네라 보내기 실패 / Fallo al enviar moneras');
-      }
-    }
-
-    async function adminGetPoints() {
-      const password = document.getElementById('admin-password').value;
-      const points = parseInt(document.getElementById('admin-points').value);
-      const res = await fetch('/admin/points', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ password, points })
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('모네라 받기 성공! / ¡Moneras obtenidas con éxito!');
-        updatePoints();
-      } else {
-        alert(data.message || '모네라 받기 실패 / Fallo al obtener moneras');
-      }
-    }
-
-    async function loadColorOptions() {
-      const select = document.getElementById('color-select');
-      const allSelect = document.getElementById('all-color-select');
-      select.innerHTML = '<option value="black">검정 / Negro</option>';
-      allSelect.innerHTML = '<option value="black">검정 / Negro</option>';
-      const now = Date.now();
-      Object.keys(items).filter(id => id.startsWith('color') && (items[id].expires || 0) > now).forEach(id => {
-        const color = id === 'color1' ? 'blue' : 'black';
-        const option = document.createElement('option');
-        option.value = color;
-        option.innerText = id === 'color1' ? '파랑 / Azul' : '검정 / Negro';
-        select.appendChild(option.cloneNode(true));
-        allSelect.appendChild(option);
-      });
-    }
-
-    function applyColor() {
-      const color = document.getElementById('color-select').value;
-      document.getElementById('chat-messages').style.color = color;
-    }
-
-    function applyAllColor() {
-      const color = document.getElementById('all-color-select').value;
-      document.getElementById('all-chat-messages').style.color = color;
     }
   </script>
 </body>
