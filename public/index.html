@@ -97,7 +97,7 @@
       border-radius: 10px; 
       box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
     }
-    input[type="text"], input[type="file"] { 
+    input[type="text"], input[type="file"], input[type="number"] { 
       padding: 10px; 
       margin: 5px; 
       border: 1px solid #ddd; 
@@ -199,10 +199,7 @@
       gap: 10px; 
       margin: 15px 0; 
     }
-    .sound-table button { 
-      padding: 10px; 
-      font-size: 16px; 
-    }
+    .sound-table button { padding: 10px; font-size: 16px; }
     .message { padding: 8px; margin: 5px 0; border-radius: 8px; background: #f0f4f8; font-size: 14px; }
     .timestamp { font-size: 0.7em; color: #666; }
     .settings-btn { 
@@ -221,10 +218,11 @@
       align-items: center; 
       justify-content: center; 
     }
-    .settings-btn:hover { 
-      transform: scale(1.05); 
-      box-shadow: 0 6px 15px rgba(0,0,0,0.2); 
-    }
+    .settings-btn:hover { transform: scale(1.05); box-shadow: 0 6px 15px rgba(0,0,0,0.2); }
+    #points { position: fixed; top: 10px; right: 10px; background: #fff; padding: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    #shop-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    #shop-items div { background: #f0f4f8; padding: 10px; border-radius: 10px; text-align: center; }
+    select { padding: 5px; margin: 5px; border-radius: 5px; }
 
     @media (max-width: 600px) {
       body { padding: 5px; }
@@ -253,11 +251,14 @@
     <button onclick="login()">로그인 / Iniciar sesión</button>
   </div>
   <div id="main" style="display: none;" class="container">
+    <div id="points"><span id="points-value">0</span> 모네라 / Moneras</div>
     <div class="tabs">
       <button onclick="showTab('users')">👥 접속 중인 사람들 / Personas conectadas</button>
       <button onclick="showTab('friends')">🌟 내 친구들 / Mis amigos</button>
       <button onclick="showTab('chat')">💬 채팅 / Chat</button>
       <button onclick="showTab('all-chat')">🌐 전체 채팅 / Chat general</button>
+      <button onclick="showTab('quiz')">🎬 퀴즈 / Quiz</button>
+      <button onclick="showTab('shop')">🛒 상점 / Tienda</button>
       <button onclick="showTab('settings')">⚙️ 설정 / Configuración</button>
     </div>
     <div id="users" class="tab-content" style="display: block;"></div>
@@ -269,6 +270,7 @@
         <button onclick="clearRoom()">🗑️ 대화 지우기 / Borrar chat</button>
         <div id="chat-messages"></div>
         <input id="message" type="text" placeholder="메시지 입력 / Escribe un mensaje" onkeypress="if(event.key === 'Enter') sendMessage()">
+        <select id="color-select" onchange="applyColor()"></select>
         <button onclick="showEmojiPicker()">😊</button>
         <div id="emoji-picker"></div>
         <input type="file" id="fileInput" accept="image/*,video/*" onchange="sendFile()">
@@ -280,12 +282,21 @@
     <div id="all-chat" class="tab-content" style="display: none;">
       <div id="all-chat-messages"></div>
       <input id="all-message" type="text" placeholder="전체 채팅 메시지 / Mensaje para todos" onkeypress="if(event.key === 'Enter') sendAllMessage()">
+      <select id="all-color-select" onchange="applyAllColor()"></select>
       <button onclick="showEmojiPickerAll()">😊</button>
       <div id="emoji-picker-all"></div>
       <input type="file" id="all-fileInput" accept="image/*,video/*" onchange="sendAllFile()">
       <button onclick="startAllRecording()">🎙️</button>
       <button onclick="stopAllRecording()" disabled>⏹️</button>
       <button onclick="sendAllMessage()">✈️ 보내기 / Enviar</button>
+    </div>
+    <div id="quiz" class="tab-content" style="display: none;">
+      <h2>오늘의 퀴즈 / Quiz del día</h2>
+      <div id="quiz-list"></div>
+    </div>
+    <div id="shop" class="tab-content" style="display: none;">
+      <h2>상점 / Tienda</h2>
+      <div id="shop-items"></div>
     </div>
     <div id="settings" class="tab-content" style="display: none;">
       <div id="settings-profile"></div>
@@ -294,6 +305,7 @@
         <button class="settings-btn" onclick="showSettingsSubmenu('sound')">🎶 소리 설정 / Configuración de sonido</button>
         <button class="settings-btn" onclick="showSettingsSubmenu('credits')">👩‍💻 제작자 / Creadores</button>
         <button class="settings-btn" onclick="showSettingsSubmenu('guide')">📖 사용법 / Instrucciones</button>
+        <button class="settings-btn" onclick="showSettingsSubmenu('admin')">👑 관리자 / Administrador</button>
       </div>
       <div id="profile-settings" class="settings-sub" style="display: none;">
         <input type="file" id="profileInput" accept="image/*" onchange="uploadProfile()">
@@ -322,16 +334,23 @@
           2. 친구 추가 후 채팅 시작 / Añade amigos y empieza a chatear.<br>
           3. 전체 채팅은 30개만 유지 / El chat general mantiene 30 mensajes.<br>
           4. 설정에서 사진, 소리 변경 / Cambia foto y sonido en configuración.<br>
-          5. 용량 400MB 초과 시 오래된 메시지 삭제 / Mensajes antiguos se borran si supera 400MB.<br>
-          6. 미디어는 7일 후 삭제 / Medios se borran tras 7 días.
+          5. 퀴즈 풀고 상점에서 아이템 구매 / Resuelve quizzes y compra ítems en la tienda.<br>
+          6. 용량 400MB 초과 시 오래된 메시지 삭제 / Mensajes antiguos se borran si supera 400MB.
         </p>
+        <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
+      </div>
+      <div id="admin-settings" class="settings-sub" style="display: none;">
+        <h2>관리자 메뉴 / Menú de administrador</h2>
+        <input id="admin-password" type="password" placeholder="비밀번호 / Contraseña">
+        <input id="admin-points" type="number" placeholder="모네라 / Moneras">
+        <button onclick="adminGetPoints()">모네라 받기 / Obtener moneras</button>
         <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
       </div>
     </div>
   </div>
   <audio id="notification"></audio>
   <script>
-    let myId, currentRoom, pollingInterval, allChatInterval, mediaRecorder, audioChunks = [], soundEnabled = true, token, lastMessageCount = 0, lastAllMessageCount = 0;
+    let myId, currentRoom, pollingInterval, allChatInterval, mediaRecorder, audioChunks = [], soundEnabled = true, token, lastMessageCount = 0, lastAllMessageCount = 0, items = {};
 
     window.onload = () => {
       const savedUserId = localStorage.getItem('savedUserId');
@@ -369,6 +388,8 @@
         updateUserList();
         updateSettingsProfile();
         loadSound();
+        updatePoints();
+        setInterval(updatePoints, 5000);
         window.onbeforeunload = logout;
       } else {
         alert('비밀번호가 틀렸어요! / ¡Contraseña incorrecta!');
@@ -378,44 +399,34 @@
     async function logout() {
       await fetch('/logout', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ userId: myId })
       });
       localStorage.removeItem('token');
     }
 
     async function updateUserList() {
-      const res = await fetch('/users', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch('/users', { headers: { 'Authorization': `Bearer ${token}` } });
       const users = await res.json();
       const usersDiv = document.getElementById('users');
       usersDiv.innerHTML = '';
-      users
-        .filter(user => user.userId !== myId)
-        .forEach(user => {
-          const div = document.createElement('div');
-          div.className = 'message';
-          div.innerHTML = `<img src="${user.profilePic}" class="profile-pic"><span>${user.userId}</span>`;
-          const addButton = document.createElement('button');
-          addButton.innerText = '친구 추가 / Añadir amigo';
-          addButton.onclick = () => addFriend(user.userId);
-          div.appendChild(addButton);
-          usersDiv.appendChild(div);
-        });
+      users.filter(user => user.userId !== myId).forEach(user => {
+        const div = document.createElement('div');
+        div.className = 'message';
+        div.innerHTML = `<img src="${user.profilePic}" class="profile-pic"><span>${user.userId}</span>`;
+        const addButton = document.createElement('button');
+        addButton.innerText = '친구 추가 / Añadir amigo';
+        addButton.onclick = () => addFriend(user.userId);
+        div.appendChild(addButton);
+        usersDiv.appendChild(div);
+      });
       updateFriendsList();
     }
 
     async function addFriend(friendId) {
       const res = await fetch('/friends', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ userId: myId, friendId })
       });
       const data = await res.json();
@@ -426,10 +437,7 @@
     async function removeFriend(friendId) {
       const res = await fetch('/friends', {
         method: 'DELETE',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ userId: myId, friendId })
       });
       const data = await res.json();
@@ -437,13 +445,9 @@
     }
 
     async function updateFriendsList() {
-      const resFriends = await fetch(`/friends/${myId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const resFriends = await fetch(`/friends/${myId}`, { headers: { 'Authorization': `Bearer ${token}` } });
       const friends = await resFriends.json();
-      const resUsers = await fetch('/all-users', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const resUsers = await fetch('/all-users', { headers: { 'Authorization': `Bearer ${token}` } });
       const allUsers = await resUsers.json();
       const friendsDiv = document.getElementById('friends');
       friendsDiv.innerHTML = '';
@@ -459,21 +463,21 @@
         const removeButton = document.createElement('button');
         removeButton.innerText = '삭제 / Eliminar';
         removeButton.onclick = () => removeFriend(friend);
+        const shareButton = document.createElement('button');
+        shareButton.innerText = '모네라 주기 / Dar moneras';
+        shareButton.onclick = () => sharePoints(friend);
         div.innerHTML = `<img src="${profilePic}" class="profile-pic">`;
         div.appendChild(chatButton);
         div.appendChild(removeButton);
+        div.appendChild(shareButton);
         friendsDiv.appendChild(div);
       });
     }
 
     async function updateRoomList() {
-      const resRooms = await fetch(`/rooms/${myId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const resRooms = await fetch(`/rooms/${myId}`, { headers: { 'Authorization': `Bearer ${token}` } });
       const roomData = await resRooms.json();
-      const resUsers = await fetch('/all-users', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const resUsers = await fetch('/all-users', { headers: { 'Authorization': `Bearer ${token}` } });
       const allUsers = await resUsers.json();
       const roomList = document.getElementById('room-list');
       roomList.innerHTML = '';
@@ -498,17 +502,12 @@
     }
 
     async function updateSettingsProfile() {
-      const res = await fetch('/users', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch('/users', { headers: { 'Authorization': `Bearer ${token}` } });
       const users = await res.json();
       const me = users.find(u => u.userId === myId);
       const profileDiv = document.getElementById('settings-profile');
-      if (me) {
-        profileDiv.innerHTML = `<img src="${me.profilePic}" class="profile-pic"><span>${myId}</span>`;
-      } else {
-        profileDiv.innerHTML = `<span>유저를 못 찾았어요: ${myId} / No se encontró el usuario: ${myId}</span>`;
-      }
+      if (me) profileDiv.innerHTML = `<img src="${me.profilePic}" class="profile-pic"><span>${myId}</span>`;
+      else profileDiv.innerHTML = `<span>유저를 못 찾았어요: ${myId} / No se encontró el usuario: ${myId}</span>`;
     }
 
     async function startChat(roomId) {
@@ -519,6 +518,7 @@
       document.getElementById('room-list').style.display = 'none';
       document.getElementById('chat-room').style.display = 'block';
       loadChatHistory();
+      loadColorOptions();
       if (pollingInterval) clearInterval(pollingInterval);
       pollingInterval = setInterval(loadChatHistory, 2000);
     }
@@ -526,19 +526,10 @@
     async function loadChatHistory() {
       if (!currentRoom) return;
       try {
-        const res = await fetch(`/chat/${currentRoom}/${myId}`, {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Cache-Control': 'no-cache'
-          }
-        });
-        if (!res.ok) {
-          throw new Error(`서버 응답 실패: ${res.status}`);
-        }
+        const res = await fetch(`/chat/${currentRoom}/${myId}`, { headers: { 'Authorization': `Bearer ${token}`, 'Cache-Control': 'no-cache' } });
+        if (!res.ok) throw new Error(`서버 응답 실패: ${res.status}`);
         const messages = await res.json();
-        const resUsers = await fetch('/all-users', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const resUsers = await fetch('/all-users', { headers: { 'Authorization': `Bearer ${token}` } });
         const allUsers = await resUsers.json();
         const chat = document.getElementById('chat-messages');
         const messageCount = messages.length;
@@ -567,19 +558,14 @@
         });
         chat.scrollTop = chat.scrollHeight;
       } catch (error) {
-        console.error('채팅 기록 로드 실패:', error);
-        alert('채팅 기록을 불러오지 못했어요. 서버 상태를 확인해주세요. / No se pudo cargar el historial de chat. Por favor, verifica el estado del servidor.');
+        alert('채팅 기록을 불러오지 못했어요. 서버 상태를 확인해주세요. / No se pudo cargar el historial de chat.');
       }
     }
 
     async function loadAllChat() {
-      const resMessages = await fetch('/all-chat', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const resMessages = await fetch('/all-chat', { headers: { 'Authorization': `Bearer ${token}` } });
       const messages = await resMessages.json();
-      const resUsers = await fetch('/all-users', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const resUsers = await fetch('/all-users', { headers: { 'Authorization': `Bearer ${token}` } });
       const allUsers = await resUsers.json();
       const chat = document.getElementById('all-chat-messages');
       const messageCount = messages.length;
@@ -612,28 +598,17 @@
     async function sendMessage() {
       const message = document.getElementById('message').value;
       if (!currentRoom || !message) return;
-      try {
-        const res = await fetch('/chat', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ roomId: currentRoom, from: myId, message })
-        });
-        if (!res.ok) {
-          throw new Error(`서버 응답 실패: ${res.status}`);
-        }
-        const data = await res.json();
-        if (data.success) {
-          document.getElementById('message').value = '';
-          loadChatHistory();
-        } else {
-          alert(data.message || '메시지 전송 실패 / Error al enviar mensaje');
-        }
-      } catch (error) {
-        console.error('메시지 전송 실패:', error);
-        alert('메시지를 보내지 못했어요. 서버 상태를 확인해주세요. / No se pudo enviar el mensaje. Por favor, verifica el estado del servidor.');
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ roomId: currentRoom, from: myId, message })
+      });
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById('message').value = '';
+        loadChatHistory();
+      } else {
+        alert(data.message || '메시지 전송 실패 / Error al enviar mensaje');
       }
     }
 
@@ -642,10 +617,7 @@
       if (!message) return;
       const res = await fetch('/chat', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ roomId: 'all-chat', from: myId, message })
       });
       const data = await res.json();
@@ -663,11 +635,7 @@
       formData.append('file', file);
       formData.append('roomId', currentRoom);
       formData.append('from', myId);
-      const res = await fetch('/upload', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
+      const res = await fetch('/upload', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
       const data = await res.json();
       if (data.success) {
         fileInput.value = '';
@@ -683,11 +651,7 @@
       formData.append('file', file);
       formData.append('roomId', 'all-chat');
       formData.append('from', myId);
-      const res = await fetch('/upload', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
+      const res = await fetch('/upload', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
       const data = await res.json();
       if (data.success) {
         fileInput.value = '';
@@ -702,11 +666,7 @@
       const formData = new FormData();
       formData.append('profile', file);
       formData.append('userId', myId);
-      const res = await fetch('/upload/profile', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
+      const res = await fetch('/upload/profile', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
       const data = await res.json();
       if (data.success) {
         alert('프로필 사진이 변경되었어요! / ¡Foto de perfil cambiada!');
@@ -723,7 +683,11 @@
       const picker = document.getElementById('emoji-picker');
       picker.style.display = picker.style.display === 'block' ? 'none' : 'block';
       picker.innerHTML = '';
-      const emojis = ['😊', '😂', '😍', '😢', '👍', '👎', '❤️', '🎉'];
+      const defaultEmojis = ['😊', '😂', '😍', '😢', '👍', '👎', '❤️', '🎉'];
+      const purchasedEmojis = Object.keys(items).filter(id => items[id] === true && id.startsWith('emoji')).map(id => ({
+        emoji1: '😊', emoji2: '😂'
+      }[id]));
+      const emojis = [...defaultEmojis, ...purchasedEmojis];
       emojis.forEach(emoji => {
         const btn = document.createElement('button');
         btn.innerText = emoji;
@@ -741,7 +705,11 @@
       const picker = document.getElementById('emoji-picker-all');
       picker.style.display = picker.style.display === 'block' ? 'none' : 'block';
       picker.innerHTML = '';
-      const emojis = ['😊', '😂', '😍', '😢', '👍', '👎', '❤️', '🎉'];
+      const defaultEmojis = ['😊', '😂', '😍', '😢', '👍', '👎', '❤️', '🎉'];
+      const purchasedEmojis = Object.keys(items).filter(id => items[id] === true && id.startsWith('emoji')).map(id => ({
+        emoji1: '😊', emoji2: '😂'
+      }[id]));
+      const emojis = [...defaultEmojis, ...purchasedEmojis];
       emojis.forEach(emoji => {
         const btn = document.createElement('button');
         btn.innerText = emoji;
@@ -779,15 +747,9 @@
       formData.append('voice', audioBlob, 'voice.wav');
       formData.append('roomId', currentRoom);
       formData.append('from', myId);
-      const res = await fetch('/upload/voice', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
+      const res = await fetch('/upload/voice', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
       const data = await res.json();
-      if (data.success) {
-        loadChatHistory();
-      }
+      if (data.success) loadChatHistory();
     }
 
     async function startAllRecording() {
@@ -814,24 +776,15 @@
       formData.append('voice', audioBlob, 'voice.wav');
       formData.append('roomId', 'all-chat');
       formData.append('from', myId);
-      const res = await fetch('/upload/voice', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
+      const res = await fetch('/upload/voice', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
       const data = await res.json();
-      if (data.success) {
-        loadAllChat();
-      }
+      if (data.success) loadAllChat();
     }
 
     async function clearRoom() {
       if (!currentRoom || !confirm('대화 기록을 지울까요? / ¿Borrar historial de chat?')) return;
       if (pollingInterval) clearInterval(pollingInterval);
-      const res = await fetch(`/chat/delete/${currentRoom}/${myId}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch(`/chat/delete/${currentRoom}/${myId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
       const data = await res.json();
       if (data.success) {
         await loadChatHistory();
@@ -857,14 +810,20 @@
         updateUserList();
       } else if (tabName === 'all-chat') {
         loadAllChat();
+        loadColorOptions();
         if (allChatInterval) clearInterval(allChatInterval);
         allChatInterval = setInterval(loadAllChat, 2000);
+      } else if (tabName === 'quiz') {
+        loadQuiz();
+      } else if (tabName === 'shop') {
+        loadShop();
       } else if (tabName === 'settings') {
         document.getElementById('settings-list').style.display = 'block';
         document.getElementById('profile-settings').style.display = 'none';
         document.getElementById('sound-settings').style.display = 'none';
         document.getElementById('credits-settings').style.display = 'none';
         document.getElementById('guide-settings').style.display = 'none';
+        document.getElementById('admin-settings').style.display = 'none';
       }
     }
 
@@ -887,6 +846,7 @@
       document.getElementById('sound-settings').style.display = 'none';
       document.getElementById('credits-settings').style.display = 'none';
       document.getElementById('guide-settings').style.display = 'none';
+      document.getElementById('admin-settings').style.display = 'none';
     }
 
     function toggleSound() {
@@ -924,6 +884,130 @@
     function resumePolling() {
       if (currentRoom) pollingInterval = setInterval(loadChatHistory, 2000);
       if (document.getElementById('all-chat').style.display === 'block') allChatInterval = setInterval(loadAllChat, 2000);
+    }
+
+    async function updatePoints() {
+      const res = await fetch('/users', { headers: { 'Authorization': `Bearer ${token}` } });
+      const users = await res.json();
+      const me = users.find(u => u.userId === myId);
+      document.getElementById('points-value').innerText = me.points || 0;
+      items = me.items || {};
+    }
+
+    async function loadQuiz() {
+      const res = await fetch('/quiz', { headers: { 'Authorization': `Bearer ${token}` } });
+      const quizzes = await res.json();
+      const quizList = document.getElementById('quiz-list');
+      quizList.innerHTML = '';
+      quizzes.forEach(q => {
+        const div = document.createElement('div');
+        div.innerHTML = `<p>${q.emoji}</p><input type="text" id="answer-${q.id}"><button onclick="submitAnswer(${q.id})">제출 / Enviar</button>`;
+        quizList.appendChild(div);
+      });
+    }
+
+    async function submitAnswer(quizId) {
+      const answer = document.getElementById(`answer-${quizId}`).value;
+      const res = await fetch('/quiz/attempt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ quizId, answer })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.correct ? '정답! 10 모네라 받았어요! / ¡Correcto! ¡Recibiste 10 moneras!' : '오답! / ¡Incorrecto!');
+        loadQuiz();
+        updatePoints();
+      }
+    }
+
+    async function loadShop() {
+      const res = await fetch('/shop', { headers: { 'Authorization': `Bearer ${token}` } });
+      const shopItems = await res.json();
+      const shopDiv = document.getElementById('shop-items');
+      shopDiv.innerHTML = '';
+      shopItems.forEach(item => {
+        const div = document.createElement('div');
+        div.innerHTML = `<p>${item.name} - ${item.price} 모네라 / Moneras</p><button onclick="purchaseItem('${item.id}')">구매 / Comprar</button>`;
+        shopDiv.appendChild(div);
+      });
+    }
+
+    async function purchaseItem(itemId) {
+      const res = await fetch('/shop/purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ itemId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('구매 성공! / ¡Compra exitosa!');
+        updatePoints();
+        loadShop();
+        loadColorOptions();
+      } else {
+        alert(data.message || '구매 실패 / Compra fallida');
+      }
+    }
+
+    async function sharePoints(friendId) {
+      const points = parseInt(prompt('몇 모네라를 줄까요? / ¿Cuántas moneras quieres dar?'));
+      if (!points || points <= 0) return;
+      const res = await fetch('/share-points', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ toUserId: friendId, points })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('모네라를 보냈어요! / ¡Moneras enviadas!');
+        updatePoints();
+      } else {
+        alert(data.message || '모네라 보내기 실패 / Fallo al enviar moneras');
+      }
+    }
+
+    async function adminGetPoints() {
+      const password = document.getElementById('admin-password').value;
+      const points = parseInt(document.getElementById('admin-points').value);
+      const res = await fetch('/admin/points', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ password, points })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('모네라 받기 성공! / ¡Moneras obtenidas con éxito!');
+        updatePoints();
+      } else {
+        alert(data.message || '모네라 받기 실패 / Fallo al obtener moneras');
+      }
+    }
+
+    async function loadColorOptions() {
+      const select = document.getElementById('color-select');
+      const allSelect = document.getElementById('all-color-select');
+      select.innerHTML = '<option value="black">검정 / Negro</option>';
+      allSelect.innerHTML = '<option value="black">검정 / Negro</option>';
+      const now = Date.now();
+      Object.keys(items).filter(id => id.startsWith('color') && (items[id].expires || 0) > now).forEach(id => {
+        const color = id === 'color1' ? 'blue' : 'black';
+        const option = document.createElement('option');
+        option.value = color;
+        option.innerText = id === 'color1' ? '파랑 / Azul' : '검정 / Negro';
+        select.appendChild(option.cloneNode(true));
+        allSelect.appendChild(option);
+      });
+    }
+
+    function applyColor() {
+      const color = document.getElementById('color-select').value;
+      document.getElementById('chat-messages').style.color = color;
+    }
+
+    function applyAllColor() {
+      const color = document.getElementById('all-color-select').value;
+      document.getElementById('all-chat-messages').style.color = color;
     }
   </script>
 </body>
