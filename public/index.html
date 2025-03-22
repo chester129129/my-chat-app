@@ -109,23 +109,23 @@
     }
     #login { 
       background: #fff3e6; 
-      padding: 25px; 
+      padding: 30px; 
       border-radius: 20px; 
       box-shadow: 0 6px 15px rgba(0,0,0,0.1); 
       text-align: center; 
       margin: 40px auto; 
-      max-width: 350px; 
+      max-width: 400px; 
       position: relative; 
       overflow: hidden; 
     }
     #login::before { 
       content: '🌟✨😊 Bienvenido / 환영합니다 😊✨🌟'; 
       position: absolute; 
-      top: -20px; 
+      top: 0; 
       left: 0; 
       width: 100%; 
       text-align: center; 
-      font-size: 20px; 
+      font-size: 18px; 
       color: #ff6b6b; 
       animation: sparkle 2s infinite; 
     }
@@ -205,6 +205,26 @@
     }
     .message { padding: 8px; margin: 5px 0; border-radius: 8px; background: #f0f4f8; font-size: 14px; }
     .timestamp { font-size: 0.7em; color: #666; }
+    .settings-btn { 
+      background: linear-gradient(135deg, #ffebcc, #cce5ff); 
+      border: none; 
+      padding: 15px 25px; 
+      margin: 10px; 
+      border-radius: 15px; 
+      cursor: pointer; 
+      color: #333; 
+      font-weight: 600; 
+      font-size: 18px; 
+      transition: all 0.3s ease; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+    }
+    .settings-btn:hover { 
+      transform: scale(1.05); 
+      box-shadow: 0 6px 15px rgba(0,0,0,0.2); 
+    }
 
     @media (max-width: 600px) {
       body { padding: 5px; }
@@ -214,13 +234,14 @@
       #chat-room button, #all-chat button { padding: 12px 18px; font-size: 18px; }
       #users button, #friends button, #settings-content button { padding: 14px 20px; font-size: 18px; }
       input[type="text"], input[type="file"] { font-size: 18px; }
-      #login { padding: 20px; max-width: 90%; }
-      #login::before { font-size: 18px; top: -15px; }
+      #login { padding: 25px; max-width: 90%; }
+      #login::before { font-size: 16px; top: 5px; }
       #settings-profile img { width: 50px; height: 50px; }
       #settings-profile span { font-size: 1em; }
       .settings-sub button { padding: 14px 20px; font-size: 18px; }
       .message { font-size: 16px; }
       .sound-table { grid-template-columns: 1fr; }
+      .settings-btn { padding: 12px 20px; font-size: 16px; }
     }
   </style>
 </head>
@@ -233,19 +254,19 @@
   </div>
   <div id="main" style="display: none;" class="container">
     <div class="tabs">
-      <button onclick="showTab('users')">접속 중인 사람들 / Personas conectadas</button>
-      <button onclick="showTab('friends')">내 친구들 / Mis amigos</button>
-      <button onclick="showTab('chat')">채팅 / Chat</button>
-      <button onclick="showTab('all-chat')">전체 채팅 / Chat general</button>
-      <button onclick="showTab('settings')">설정 / Configuración</button>
+      <button onclick="showTab('users')">👥 접속 중인 사람들 / Personas conectadas</button>
+      <button onclick="showTab('friends')">🌟 내 친구들 / Mis amigos</button>
+      <button onclick="showTab('chat')">💬 채팅 / Chat</button>
+      <button onclick="showTab('all-chat')">🌐 전체 채팅 / Chat general</button>
+      <button onclick="showTab('settings')">⚙️ 설정 / Configuración</button>
     </div>
     <div id="users" class="tab-content" style="display: block;"></div>
     <div id="friends" class="tab-content" style="display: none;"></div>
     <div id="chat" class="tab-content" style="display: none;">
       <div id="room-list" style="display: block;"></div>
       <div id="chat-room" style="display: none;">
-        <button onclick="backToRooms()">뒤로가기 / Volver</button>
-        <button onclick="clearRoom()">대화 지우기 / Borrar chat</button>
+        <button onclick="backToRooms()">⬅️ 뒤로가기 / Volver</button>
+        <button onclick="clearRoom()">🗑️ 대화 지우기 / Borrar chat</button>
         <div id="chat-messages"></div>
         <input id="message" type="text" placeholder="메시지 입력 / Escribe un mensaje" onkeypress="if(event.key === 'Enter') sendMessage()">
         <button onclick="showEmojiPicker()">😊</button>
@@ -253,7 +274,7 @@
         <input type="file" id="fileInput" accept="image/*,video/*" onchange="sendFile()">
         <button onclick="startRecording()">🎙️</button>
         <button onclick="stopRecording()" disabled>⏹️</button>
-        <button onclick="sendMessage()">보내기 / Enviar</button>
+        <button onclick="sendMessage()">✈️ 보내기 / Enviar</button>
       </div>
     </div>
     <div id="all-chat" class="tab-content" style="display: none;">
@@ -264,36 +285,36 @@
       <input type="file" id="all-fileInput" accept="image/*,video/*" onchange="sendAllFile()">
       <button onclick="startAllRecording()">🎙️</button>
       <button onclick="stopAllRecording()" disabled>⏹️</button>
-      <button onclick="sendAllMessage()">보내기 / Enviar</button>
+      <button onclick="sendAllMessage()">✈️ 보내기 / Enviar</button>
     </div>
     <div id="settings" class="tab-content" style="display: none;">
       <div id="settings-profile"></div>
       <div id="settings-list" style="display: block;">
-        <button onclick="showSettingsSubmenu('profile')">프로필 사진 설정 / Configuración de foto de perfil</button>
-        <button onclick="showSettingsSubmenu('sound')">소리 설정 / Configuración de sonido</button>
-        <button onclick="showSettingsSubmenu('credits')">제작자 / Creadores</button>
-        <button onclick="showSettingsSubmenu('guide')">사용법 / Instrucciones</button>
+        <button class="settings-btn" onclick="showSettingsSubmenu('profile')">📸 프로필 사진 설정 / Configuración de foto de perfil</button>
+        <button class="settings-btn" onclick="showSettingsSubmenu('sound')">🎶 소리 설정 / Configuración de sonido</button>
+        <button class="settings-btn" onclick="showSettingsSubmenu('credits')">👩‍💻 제작자 / Creadores</button>
+        <button class="settings-btn" onclick="showSettingsSubmenu('guide')">📖 사용법 / Instrucciones</button>
       </div>
       <div id="profile-settings" class="settings-sub" style="display: none;">
         <input type="file" id="profileInput" accept="image/*" onchange="uploadProfile()">
-        <button onclick="backToSettings()">뒤로가기 / Volver</button>
+        <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
       </div>
       <div id="sound-settings" class="settings-sub" style="display: none;">
-        <button onclick="toggleSound()">소리 켜기/끄기 / Activar/Desactivar sonido</button>
+        <button onclick="toggleSound()">🔊 소리 켜기/끄기 / Activar/Desactivar sonido</button>
         <p>소리 선택 / Seleccionar sonido:</p>
         <div class="sound-table">
-          <button onclick="setSound('soft')">부드러운 소리 / Sonido suave</button>
-          <button onclick="previewSound('soft')">미리듣기 / Escuchar</button>
-          <button onclick="setSound('bell')">종소리 / Campana</button>
-          <button onclick="previewSound('bell')">미리듣기 / Escuchar</button>
-          <button onclick="setSound('chime')">차임 소리 / Carillón</button>
-          <button onclick="previewSound('chime')">미리듣기 / Escuchar</button>
+          <button onclick="setSound('soft')">🎵 부드러운 소리 / Sonido suave</button>
+          <button onclick="previewSound('soft')">👂 미리듣기 / Escuchar</button>
+          <button onclick="setSound('bell')">🔔 종소리 / Campana</button>
+          <button onclick="previewSound('bell')">👂 미리듣기 / Escuchar</button>
+          <button onclick="setSound('chime')">🎶 차임 소리 / Carillón</button>
+          <button onclick="previewSound('chime')">👂 미리듣기 / Escuchar</button>
         </div>
-        <button onclick="backToSettings()">뒤로가기 / Volver</button>
+        <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
       </div>
       <div id="credits-settings" class="settings-sub" style="display: none;">
         <p>✨ Gunil & Noelia ✨<br>by xAI Corporation</p>
-        <button onclick="backToSettings()">뒤로가기 / Volver</button>
+        <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
       </div>
       <div id="guide-settings" class="settings-sub" style="display: none;">
         <p>이 프로그램 사용법 / Instrucciones del programa:<br>
@@ -304,7 +325,7 @@
           5. 용량 400MB 초과 시 오래된 메시지 삭제 / Mensajes antiguos se borran si supera 400MB.<br>
           6. 미디어는 7일 후 삭제 / Medios se borran tras 7 días.
         </p>
-        <button onclick="backToSettings()">뒤로가기 / Volver</button>
+        <button onclick="backToSettings()">⬅️ 뒤로가기 / Volver</button>
       </div>
     </div>
   </div>
@@ -521,7 +542,7 @@
         const allUsers = await resUsers.json();
         const chat = document.getElementById('chat-messages');
         const messageCount = messages.length;
-        if (messageCount > lastMessageCount && soundEnabled) {
+        if (messageCount > lastMessageCount && soundEnabled && messages[messages.length - 1].from !== myId) {
           const audio = document.getElementById('notification');
           audio.play().catch(err => console.log('알림 소리 재생 실패 / Error al reproducir sonido:', err));
         }
@@ -562,7 +583,7 @@
       const allUsers = await resUsers.json();
       const chat = document.getElementById('all-chat-messages');
       const messageCount = messages.length;
-      if (messageCount > lastAllMessageCount && soundEnabled) {
+      if (messageCount > lastAllMessageCount && soundEnabled && messages[messages.length - 1].from !== myId) {
         const audio = document.getElementById('notification');
         audio.play().catch(err => console.log('알림 소리 재생 실패 / Error al reproducir sonido:', err));
       }

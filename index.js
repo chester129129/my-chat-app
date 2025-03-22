@@ -270,6 +270,18 @@ app.post('/upload/profile', verifyUser, upload.single('profile'), async (req, re
   const { userId } = req.body;
   if (!userId || !req.file) return res.status(400).json({ success: false });
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
+
+  // 기존 프로필 사진 가져오기
+  const { data: userData, error: userError } = await supabase.from('users').select('profilePic').eq('userId', userId).single();
+  if (userError) {
+    console.log('프로필 사진 조회 에러 / Error al obtener foto de perfil:', userError);
+    return res.status(500).json({ success: false });
+  }
+
+  const oldProfilePic = userData.profilePic;
+  const isDefaultPic = oldProfilePic === '/uploads/default-profile.png';
+
+  // 새 프로필 사진 업로드
   const fileName = `${userId}-${Date.now()}.jpg`;
   const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
     contentType: req.file.mimetype,
@@ -280,11 +292,23 @@ app.post('/upload/profile', verifyUser, upload.single('profile'), async (req, re
   }
   const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
   const fileUrl = urlData.publicUrl;
-  const { error } = await supabase.from('users').update({ profilePic: fileUrl }).eq('userId', userId);
-  if (error) {
-    console.log('프로필 사진 업데이트 에러 / Error al actualizar foto de perfil:', error);
+
+  // 사용자 정보 업데이트
+  const { error: updateError } = await supabase.from('users').update({ profilePic: fileUrl }).eq('userId', userId);
+  if (updateError) {
+    console.log('프로필 사진 업데이트 에러 / Error al actualizar foto de perfil:', updateError);
     return res.status(500).json({ success: false });
   }
+
+  // 이전 프로필 사진 삭제 (기본 사진이 아닌 경우만)
+  if (!isDefaultPic) {
+    const oldFileName = oldProfilePic.split('/').pop();
+    const { error: deleteError } = await supabase.storage.from('uploads').remove([oldFileName]);
+    if (deleteError) {
+      console.log('이전 프로필 사진 삭제 에러 / Error al eliminar foto de perfil anterior:', deleteError);
+    }
+  }
+
   res.json({ success: true, profilePic: fileUrl });
 });
 
