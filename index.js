@@ -268,48 +268,79 @@ app.post('/upload', verifyUser, upload.single('file'), async (req, res) => {
 
 app.post('/upload/profile', verifyUser, upload.single('profile'), async (req, res) => {
   const { userId } = req.body;
-  if (!userId || !req.file) return res.status(400).json({ success: false });
-  if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
 
-  // 기존 프로필 사진 가져오기
-  const { data: userData, error: userError } = await supabase.from('users').select('profilePic').eq('userId', userId).single();
-  if (userError) {
-    console.log('프로필 사진 조회 에러 / Error al obtener foto de perfil:', userError);
-    return res.status(500).json({ success: false });
+  // 입력값 확인
+  if (!userId || !req.file) {
+    console.log('입력값 오류 / Error de entrada:', { userId, file: req.file });
+    return res.status(400).json({ success: false, message: 'userId나 파일이 없어요 / Falta userId o archivo' });
+  }
+  if (userId !== req.userId) {
+    console.log('권한 오류 / Error de permiso:', { userId, reqUserId: req.userId });
+    return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
   }
 
-  const oldProfilePic = userData.profilePic;
-  const isDefaultPic = oldProfilePic === '/uploads/default-profile.png';
-
-  // 새 프로필 사진 업로드
-  const fileName = `${userId}-${Date.now()}.jpg`;
-  const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
-    contentType: req.file.mimetype,
-  });
-  if (uploadError) {
-    console.log('프로필 사진 업로드 에러 / Error al subir foto de perfil:', uploadError);
-    return res.status(500).json({ success: false });
-  }
-  const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
-  const fileUrl = urlData.publicUrl;
-
-  // 사용자 정보 업데이트
-  const { error: updateError } = await supabase.from('users').update({ profilePic: fileUrl }).eq('userId', userId);
-  if (updateError) {
-    console.log('프로필 사진 업데이트 에러 / Error al actualizar foto de perfil:', updateError);
-    return res.status(500).json({ success: false });
-  }
-
-  // 이전 프로필 사진 삭제 (기본 사진이 아닌 경우만)
-  if (!isDefaultPic) {
-    const oldFileName = oldProfilePic.split('/').pop();
-    const { error: deleteError } = await supabase.storage.from('uploads').remove([oldFileName]);
-    if (deleteError) {
-      console.log('이전 프로필 사진 삭제 에러 / Error al eliminar foto de perfil anterior:', deleteError);
+  try {
+    // 기존 프로필 사진 가져오기
+    console.log('프로필 사진 조회 시작 / Iniciando obtención de foto de perfil:', { userId });
+    const { data: userData, error: userError } = await supabase.from('users').select('profilePic').eq('userId', userId).single();
+    if (userError || !userData) {
+      console.log('프로필 사진 조회 실패 / Fallo al obtener foto de perfil:', userError);
+      return res.status(500).json({ success: false, message: '프로필 정보를 가져오지 못했어요 / No se pudo obtener la info del perfil' });
     }
-  }
 
-  res.json({ success: true, profilePic: fileUrl });
+    const oldProfilePic = userData.profilePic || '/uploads/default-profile.png';
+    const isDefaultPic = oldProfilePic === '/uploads/default-profile.png';
+    console.log('기존 프로필 사진 / Foto de perfil antigua:', { oldProfilePic, isDefaultPic });
+
+    // 새 프로필 사진 업로드 (파일 이름에 영어와 숫자만 사용)
+    const fileName = `profile-${Date.now()}.jpg`; // 한국어 대신 "profile" 사용
+    console.log('새 사진 업로드 시작 / Iniciando subida de nueva foto:', { fileName });
+    const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
+      contentType: req.file.mimetype,
+    });
+    if (uploadError) {
+      console.log('프로필 사진 업로드 실패 / Fallo al subir foto de perfil:', uploadError);
+      return res.status(500).json({ 
+        success: false, 
+        message: `사진 업로드에 실패했어요: ${uploadError.message} / Falló la subida de la foto: ${uploadError.message}` 
+      });
+    }
+    const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
+    const fileUrl = urlData.publicUrl;
+    console.log('새 사진 업로드 성공 / Subida de nueva foto exitosa:', { fileUrl });
+
+    // 사용자 정보 업데이트
+    console.log('프로필 업데이트 시작 / Iniciando actualización de perfil:', { userId, fileUrl });
+    const { error: updateError } = await supabase.from('users').update({ profilePic: fileUrl }).eq('userId', userId);
+    if (updateError) {
+      console.log('프로필 업데이트 실패 / Fallo al actualizar perfil:', updateError);
+      return res.status(500).json({ 
+        success: false, 
+        message: `프로필 업데이트에 실패했어요: ${updateError.message} / Falló la actualización del perfil: ${updateError.message}` 
+      });
+    }
+
+    // 이전 프로필 사진 삭제 (기본 사진이 아닌 경우만)
+    if (!isDefaultPic) {
+      const oldFileName = oldProfilePic.split('/').pop();
+      console.log('이전 사진 삭제 시작 / Iniciando eliminación de foto antigua:', { oldFileName });
+      const { error: deleteError } = await supabase.storage.from('uploads').remove([oldFileName]);
+      if (deleteError) {
+        console.log('이전 사진 삭제 실패 (무시됨) / Fallo al eliminar foto antigua (ignorado):', deleteError);
+      } else {
+        console.log('이전 사진 삭제 성공 / Eliminación de foto antigua exitosa');
+      }
+    }
+
+    console.log('프로필 사진 변경 완료 / Cambio de foto de perfil completado:', { userId, newProfilePic: fileUrl });
+    res.json({ success: true, profilePic: fileUrl });
+  } catch (error) {
+    console.log('예상치 못한 오류 / Error inesperado:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: `알 수 없는 오류가 발생했어요: ${error.message} / Ocurrió un error desconocido: ${error.message}` 
+    });
+  }
 });
 
 app.post('/upload/voice', verifyUser, upload.single('voice'), async (req, res) => {
@@ -361,7 +392,7 @@ app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
   const { error: insertError } = await supabase.from('deleted_messages').insert(deletedEntries);
   if (insertError) {
     console.log('채팅 삭제 - 삽입 에러 / Error al insertar eliminación de chat:', insertError);
-    return res.status(500).json({ success: false, message: '삭제 기록 삽입 실패 / Error al insertar registro de eliminación', error: insertError.message });
+    return res.status(500).json({ success: false, message: '삭제 기록 삽입 실패 / Error al insertar registro de eliminación' });
   }
 
   console.log('삭제 기록 삽입 성공 / Registro de eliminación insertado', { roomId, userId, count: deletedEntries.length });
