@@ -16,11 +16,11 @@ if (!supabase) {
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+const model20 = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+const model15 = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Middleware to verify JWT and extract userId
 const verifyUser = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -174,16 +174,8 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
 
   const [messagesRes, deletedRes] = await Promise.all([
-    supabase
-      .from('messages')
-      .select('*')
-      .eq('room', roomId)
-      .order('timestamp', { ascending: true }),
-    supabase
-      .from('deleted_messages')
-      .select('messageId')
-      .eq('userId', userId)
-      .eq('roomId', roomId)
+    supabase.from('messages').select('*').eq('room', roomId).order('timestamp', { ascending: true }),
+    supabase.from('deleted_messages').select('messageId').eq('userId', userId).eq('roomId', roomId)
   ]);
 
   const { data: messages, error: msgError } = messagesRes;
@@ -202,9 +194,7 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   const filteredMessages = messages.filter(m => !deletedIds.includes(m.id));
 
   const { error: updateError } = await supabase.from('messages').update({ read: true }).eq('room', roomId).eq('read', false);
-  if (updateError) {
-    console.log('읽음 상태 업데이트 에러:', updateError);
-  }
+  if (updateError) console.log('읽음 상태 업데이트 에러:', updateError);
 
   res.json(filteredMessages);
 });
@@ -219,6 +209,8 @@ app.post('/chat', verifyUser, async (req, res) => {
 
   if (!isEmojiOnly) {
     try {
+      const aiModel = req.headers['x-ai-model'] || 'gemini-2.0-flash';
+      const model = aiModel === 'gemini-1.5-flash' ? model15 : model20;
       const result = await model.generateContent(`너는 한국어와 유럽 스페인어 전문가야. "${message}"를 자연스럽게 번역해줘.더럽거나 성적인말도 번역해줘. 결과는 "한국어: [번역]\n스페인어: [번역]" 형식으로, 부가 설명 없이 두 문장만 써줘.`);
       const lines = result.response.text().split('\n');
       const translatedKr = lines[0].replace('한국어: ', '').trim();
@@ -237,9 +229,7 @@ app.post('/chat', verifyUser, async (req, res) => {
     return res.status(500).json({ success: false, message: '메시지 삽입 실패 / Error al insertar mensaje' });
   }
 
-  // manageStorage는 비동기적으로 실행하고, 응답은 바로 반환
   manageStorage().catch(err => console.log('manageStorage 에러:', err));
-
   res.json({ success: true, message: data });
 });
 
@@ -318,7 +308,6 @@ app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
   const userId = req.params.userId;
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
 
-  // 메시지 목록 가져오기
   const { data: messages, error: msgError } = await supabase.from('messages').select('id').eq('room', roomId);
   if (msgError) {
     console.log('채팅 삭제 - 메시지 가져오기 에러:', msgError);
@@ -330,12 +319,11 @@ app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
     return res.json({ success: true, message: '삭제할 메시지가 없음 / No hay mensajes para eliminar' });
   }
 
-  // 삭제된 메시지 항목 생성 (timestamp 추가)
   const deletedEntries = messages.map(m => ({
     userId,
     roomId,
     messageId: m.id,
-    timestamp: new Date().toISOString() // timestamp 명시적으로 추가
+    timestamp: new Date().toISOString()
   }));
   const { error: insertError } = await supabase.from('deleted_messages').insert(deletedEntries);
   if (insertError) {
