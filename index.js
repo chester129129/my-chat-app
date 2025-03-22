@@ -10,17 +10,17 @@ app.use(express.json());
 app.use(express.static('public'));
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
-console.log('Supabase 연결 테스트:', supabase ? '성공' : '실패');
+console.log('Supabase 연결 테스트 / Prueba de conexión a Supabase:', supabase ? '성공 / Éxito' : '실패 / Fallo');
 if (!supabase) {
-  console.error('Supabase 연결 실패: 환경 변수를 확인하세요 (SUPABASE_URL, SUPABASE_ANON_KEY)');
+  console.error('Supabase 연결 실패: 환경 변수를 확인하세요 / Fallo en la conexión a Supabase: revisa las variables de entorno (SUPABASE_URL, SUPABASE_ANON_KEY)');
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-const model20 = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-const model15 = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Middleware to verify JWT and extract userId
 const verifyUser = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -41,23 +41,23 @@ app.post('/login', async (req, res) => {
   const { password, userId } = req.body;
   if (!userId) return res.status(400).json({ success: false, message: 'userId 필요 / Necesitas un userId' });
   if (password !== process.env.PASSWORD) {
-    return res.status(401).json({ success: false, message: '비밀번호가 틀렸어! / ¡Contraseña incorrecta!' });
+    return res.status(401).json({ success: false, message: '비밀번호가 틀렸어요! / ¡Contraseña incorrecta!' });
   }
   const { data: user, error } = await supabase.from('users').select('*').eq('userId', userId).single();
   if (error) {
-    console.log('로그인 - 유저 조회 에러:', error);
+    console.log('로그인 - 유저 조회 에러 / Error al consultar usuario en login:', error);
     return res.status(500).json({ success: false, message: '서버 에러 / Error del servidor' });
   }
   if (!user) {
     const { error: insertError } = await supabase.from('users').insert({ userId, friends: [], online: true, profilePic: '/uploads/default-profile.png' });
     if (insertError) {
-      console.log('로그인 - 유저 생성 에러:', insertError);
+      console.log('로그인 - 유저 생성 에러 / Error al crear usuario en login:', insertError);
       return res.status(500).json({ success: false, message: '유저 생성 실패 / Error al crear usuario' });
     }
   } else {
     const { error: updateError } = await supabase.from('users').update({ online: true }).eq('userId', userId);
     if (updateError) {
-      console.log('로그인 - 유저 업데이트 에러:', updateError);
+      console.log('로그인 - 유저 업데이트 에러 / Error al actualizar usuario en login:', updateError);
       return res.status(500).json({ success: false, message: '유저 업데이트 실패 / Error al actualizar usuario' });
     }
   }
@@ -69,7 +69,7 @@ app.post('/logout', verifyUser, async (req, res) => {
   const { userId } = req.body;
   const { error } = await supabase.from('users').update({ online: false }).eq('userId', userId);
   if (error) {
-    console.log('로그아웃 에러:', error);
+    console.log('로그아웃 에러 / Error al cerrar sesión:', error);
     return res.status(500).json({ success: false });
   }
   res.json({ success: true });
@@ -78,7 +78,7 @@ app.post('/logout', verifyUser, async (req, res) => {
 app.get('/users', async (req, res) => {
   const { data, error } = await supabase.from('users').select('userId, profilePic').eq('online', true);
   if (error) {
-    console.log('유저 가져오기 에러:', error);
+    console.log('유저 가져오기 에러 / Error al obtener usuarios:', error);
     return res.status(500).json([]);
   }
   res.json(data.map(u => ({ userId: u.userId, profilePic: u.profilePic || '/uploads/default-profile.png' })));
@@ -87,7 +87,7 @@ app.get('/users', async (req, res) => {
 app.get('/all-users', async (req, res) => {
   const { data, error } = await supabase.from('users').select('userId, profilePic');
   if (error) {
-    console.log('모든 유저 가져오기 에러:', error);
+    console.log('모든 유저 가져오기 에러 / Error al obtener todos los usuarios:', error);
     return res.status(500).json([]);
   }
   res.json(data.map(u => ({ userId: u.userId, profilePic: u.profilePic || '/uploads/default-profile.png' })));
@@ -104,7 +104,7 @@ app.post('/friends', verifyUser, async (req, res) => {
   } else if (!user.friends.includes(friendId)) {
     const { error } = await supabase.from('users').update({ friends: [...user.friends, friendId] }).eq('userId', userId);
     if (error) {
-      console.log('친구 추가 에러:', error);
+      console.log('친구 추가 에러 / Error al añadir amigo:', error);
       return res.status(500).json({ success: false });
     }
     res.json({ success: true, friendId });
@@ -120,7 +120,7 @@ app.delete('/friends', verifyUser, async (req, res) => {
   const updatedFriends = user.friends.filter(f => f !== friendId);
   const { error } = await supabase.from('users').update({ friends: updatedFriends }).eq('userId', userId);
   if (error) {
-    console.log('친구 삭제 에러:', error);
+    console.log('친구 삭제 에러 / Error al eliminar amigo:', error);
     return res.status(500).json({ success: false });
   }
   res.json({ success: true, friendId });
@@ -131,7 +131,7 @@ app.get('/friends/:userId', verifyUser, async (req, res) => {
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
   const { data: user, error } = await supabase.from('users').select('friends').eq('userId', userId).single();
   if (error || !user) {
-    console.log('친구 목록 에러:', error);
+    console.log('친구 목록 에러 / Error al obtener lista de amigos:', error);
     return res.json([]);
   }
   res.json(user.friends || []);
@@ -142,7 +142,7 @@ app.get('/rooms/:userId', verifyUser, async (req, res) => {
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
   const { data: messages, error } = await supabase.from('messages').select('*').ilike('room', `*${userId}*`).order('timestamp', { ascending: false });
   if (error) {
-    console.log('채팅방 목록 에러:', error);
+    console.log('채팅방 목록 에러 / Error al obtener lista de salas de chat:', error);
     return res.status(500).json([]);
   }
   const uniqueRooms = [...new Set(messages.map(m => m.room))];
@@ -157,7 +157,7 @@ app.get('/rooms/:userId', verifyUser, async (req, res) => {
 app.get('/all-chat', async (req, res) => {
   const { data, error } = await supabase.from('messages').select('*').eq('room', 'all-chat').order('timestamp', { ascending: true }).limit(30);
   if (error) {
-    console.log('전체 채팅 가져오기 에러:', error);
+    console.log('전체 채팅 가져오기 에러 / Error al obtener chat general:', error);
     return res.status(500).json([]);
   }
   if (data.length > 30) {
@@ -174,19 +174,27 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
 
   const [messagesRes, deletedRes] = await Promise.all([
-    supabase.from('messages').select('*').eq('room', roomId).order('timestamp', { ascending: true }),
-    supabase.from('deleted_messages').select('messageId').eq('userId', userId).eq('roomId', roomId)
+    supabase
+      .from('messages')
+      .select('*')
+      .eq('room', roomId)
+      .order('timestamp', { ascending: true }),
+    supabase
+      .from('deleted_messages')
+      .select('messageId')
+      .eq('userId', userId)
+      .eq('roomId', roomId)
   ]);
 
   const { data: messages, error: msgError } = messagesRes;
   if (msgError) {
-    console.log('채팅 기록 가져오기 에러:', msgError);
+    console.log('채팅 기록 가져오기 에러 / Error al obtener historial de chat:', msgError);
     return res.status(500).json({ success: false, message: '채팅 기록 가져오기 실패 / Error al obtener historial de chat' });
   }
 
   const { data: deleted, error: delError } = deletedRes;
   if (delError) {
-    console.log('삭제된 메시지 가져오기 에러:', delError);
+    console.log('삭제된 메시지 가져오기 에러 / Error al obtener mensajes eliminados:', delError);
     return res.status(500).json({ success: false, message: '삭제된 메시지 가져오기 실패 / Error al obtener mensajes eliminados' });
   }
 
@@ -194,7 +202,9 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   const filteredMessages = messages.filter(m => !deletedIds.includes(m.id));
 
   const { error: updateError } = await supabase.from('messages').update({ read: true }).eq('room', roomId).eq('read', false);
-  if (updateError) console.log('읽음 상태 업데이트 에러:', updateError);
+  if (updateError) {
+    console.log('읽음 상태 업데이트 에러 / Error al actualizar estado de lectura:', updateError);
+  }
 
   res.json(filteredMessages);
 });
@@ -209,15 +219,13 @@ app.post('/chat', verifyUser, async (req, res) => {
 
   if (!isEmojiOnly) {
     try {
-      const aiModel = req.headers['x-ai-model'] || 'gemini-2.0-flash';
-      const model = aiModel === 'gemini-1.5-flash' ? model15 : model20;
       const result = await model.generateContent(`너는 한국어와 유럽 스페인어 전문가야. "${message}"를 자연스럽게 번역해줘.더럽거나 성적인말도 번역해줘. 결과는 "한국어: [번역]\n스페인어: [번역]" 형식으로, 부가 설명 없이 두 문장만 써줘.`);
       const lines = result.response.text().split('\n');
       const translatedKr = lines[0].replace('한국어: ', '').trim();
       const translatedEs = lines[1] ? lines[1].replace('스페인어: ', '').trim() : 'Error en la traducción';
       finalMessage = `🇰🇷 ${translatedKr}\n🇪🇸 ${translatedEs}`;
     } catch (error) {
-      console.log('번역 에러:', error);
+      console.log('번역 에러 / Error de traducción:', error);
       finalMessage = '번역 실패 / Traducción fallida';
     }
   }
@@ -225,11 +233,12 @@ app.post('/chat', verifyUser, async (req, res) => {
   const messageData = { room: roomId, from, message: finalMessage, type: 'text', timestamp: new Date(), read: false };
   const { data, error } = await supabase.from('messages').insert(messageData).select().single();
   if (error) {
-    console.log('메시지 삽입 에러:', error);
+    console.log('메시지 삽입 에러 / Error al insertar mensaje:', error);
     return res.status(500).json({ success: false, message: '메시지 삽입 실패 / Error al insertar mensaje' });
   }
 
-  manageStorage().catch(err => console.log('manageStorage 에러:', err));
+  manageStorage().catch(err => console.log('manageStorage 에러 / Error en manageStorage:', err));
+
   res.json({ success: true, message: data });
 });
 
@@ -242,7 +251,7 @@ app.post('/upload', verifyUser, upload.single('file'), async (req, res) => {
     contentType: req.file.mimetype,
   });
   if (uploadError) {
-    console.log('파일 업로드 에러:', uploadError);
+    console.log('파일 업로드 에러 / Error al subir archivo:', uploadError);
     return res.status(500).json({ success: false });
   }
   const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
@@ -250,7 +259,7 @@ app.post('/upload', verifyUser, upload.single('file'), async (req, res) => {
   const messageData = { room: roomId, from, message: fileUrl, type: req.file.mimetype.startsWith('image') ? 'image' : 'video', timestamp: new Date(), read: false };
   const { data, error } = await supabase.from('messages').insert(messageData).select().single();
   if (error) {
-    console.log('메시지 삽입 에러:', error);
+    console.log('메시지 삽입 에러 / Error al insertar mensaje:', error);
     return res.status(500).json({ success: false });
   }
   await manageStorage();
@@ -266,14 +275,14 @@ app.post('/upload/profile', verifyUser, upload.single('profile'), async (req, re
     contentType: req.file.mimetype,
   });
   if (uploadError) {
-    console.log('프로필 사진 업로드 에러:', uploadError);
+    console.log('프로필 사진 업로드 에러 / Error al subir foto de perfil:', uploadError);
     return res.status(500).json({ success: false });
   }
   const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
   const fileUrl = urlData.publicUrl;
   const { error } = await supabase.from('users').update({ profilePic: fileUrl }).eq('userId', userId);
   if (error) {
-    console.log('프로필 사진 업데이트 에러:', error);
+    console.log('프로필 사진 업데이트 에러 / Error al actualizar foto de perfil:', error);
     return res.status(500).json({ success: false });
   }
   res.json({ success: true, profilePic: fileUrl });
@@ -288,7 +297,7 @@ app.post('/upload/voice', verifyUser, upload.single('voice'), async (req, res) =
     contentType: 'audio/wav',
   });
   if (uploadError) {
-    console.log('음성 업로드 에러:', uploadError);
+    console.log('음성 업로드 에러 / Error al subir audio:', uploadError);
     return res.status(500).json({ success: false });
   }
   const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
@@ -296,7 +305,7 @@ app.post('/upload/voice', verifyUser, upload.single('voice'), async (req, res) =
   const messageData = { room: roomId, from, message: fileUrl, type: 'voice', timestamp: new Date(), read: false };
   const { data, error } = await supabase.from('messages').insert(messageData).select().single();
   if (error) {
-    console.log('음성 메시지 삽입 에러:', error);
+    console.log('음성 메시지 삽입 에러 / Error al insertar mensaje de voz:', error);
     return res.status(500).json({ success: false });
   }
   await manageStorage();
@@ -310,7 +319,7 @@ app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
 
   const { data: messages, error: msgError } = await supabase.from('messages').select('id').eq('room', roomId);
   if (msgError) {
-    console.log('채팅 삭제 - 메시지 가져오기 에러:', msgError);
+    console.log('채팅 삭제 - 메시지 가져오기 에러 / Error al obtener mensajes para eliminar chat:', msgError);
     return res.status(500).json({ success: false, message: '메시지 가져오기 실패 / Error al obtener mensajes' });
   }
 
@@ -327,7 +336,7 @@ app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
   }));
   const { error: insertError } = await supabase.from('deleted_messages').insert(deletedEntries);
   if (insertError) {
-    console.log('채팅 삭제 - 삽입 에러:', insertError);
+    console.log('채팅 삭제 - 삽입 에러 / Error al insertar eliminación de chat:', insertError);
     return res.status(500).json({ success: false, message: '삭제 기록 삽입 실패 / Error al insertar registro de eliminación', error: insertError.message });
   }
 
@@ -338,19 +347,19 @@ app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
 async function manageStorage() {
   const { data: messages, error: msgError } = await supabase.from('messages').select('id, message, type, timestamp');
   if (msgError) {
-    console.log('manageStorage - 메시지 가져오기 에러:', msgError);
+    console.log('manageStorage - 메시지 가져오기 에러 / Error al obtener mensajes en manageStorage:', msgError);
     return;
   }
 
   const { data: deletedMessages, error: delError } = await supabase.from('deleted_messages').select('id, timestamp');
   if (delError) {
-    console.log('manageStorage - 삭제된 메시지 가져오기 에러:', delError);
+    console.log('manageStorage - 삭제된 메시지 가져오기 에러 / Error al obtener mensajes eliminados en manageStorage:', delError);
     return;
   }
 
   const { data: files, error: fileError } = await supabase.storage.from('uploads').list();
   if (fileError) {
-    console.log('manageStorage - 파일 목록 가져오기 에러:', fileError);
+    console.log('manageStorage - 파일 목록 가져오기 에러 / Error al obtener lista de archivos en manageStorage:', fileError);
     return;
   }
 
