@@ -1,0 +1,20 @@
+{"room":"테스트1-테스트2","from":"테스트1","message":"번역 실패\nError en la traducción","type":"text","timestamp":{"$$date":1742437669716},"read":true,"hiddenFor":[],"_id":"A8MiJxLmNbvKnD8v"}
+{"room":"테스트1-테스트2","from":"테스트1","message":"번역 실패\nError en la traducción","type":"text","timestamp":{"$$date":1742438864080},"read":true,"hiddenFor":[],"_id":"BLWPLTNlhfC74akX"}
+{"room":"테스트1-테스트2","from":"테스트1","message":"🇰🇷 안녕?\n🇪🇸 ¿Qué tal?","type":"text","timestamp":{"$$date":1742443110729},"read":true,"_id":"BlgQ4ZZJfWB520bK"}
+{"room":"테스트1-테스트2","from":"테스트2","message":"🇰🇷 번역 실패\n🇪🇸 Error en la traducción","type":"text","timestamp":{"$$date":1742439362092},"read":true,"_id":"Hz2YBTUUIdStZCbw"}
+{"room":"테스트1-테스트2","from":"테스트2","message":"번역 실패\nError en la traducción","type":"text","timestamp":{"$$date":1742437252663},"read":true,"hiddenFor":[],"_id":"NcKJMdhLK5cCAVC8"}
+{"room":"테스트1-테스트2","from":"테스트2","message":"🇰🇷 감자\n🇪🇸 patata","type":"text","timestamp":{"$$date":1742441326476},"read":true,"_id":"NqQ6Q3AnFYyAiZZP"}
+{"room":"all-chat","from":"테스트1","message":"🇰🇷 번역 실패\n🇪🇸 Error en la traducción","type":"text","timestamp":{"$$date":1742441381535},"read":false,"_id":"O7F4VJ9z23xhxwoV"}
+{"room":"테스트1-테스트2","from":"테스트2","message":"번역 실패\nError en la traducción","type":"text","timestamp":{"$$date":1742438881005},"read":true,"hiddenFor":[],"_id":"OlHjhTrVXlZhk2Kc"}
+{"room":"all-chat","from":"테스트2","message":"🇰🇷 안녕\n🇪🇸 hola","type":"text","timestamp":{"$$date":1742441524481},"read":false,"_id":"ZB6fkFl8j7gArmsa"}
+{"room":"테스트1-테스트2","from":"테스트1","message":"🇰🇷 사진\n🇪🇸 foto","type":"text","timestamp":{"$$date":1742443562791},"read":true,"_id":"ZKAlXjD0IAcYIusP"}
+{"room":"all-chat","from":"테스트1","message":"🇰🇷 사람\n🇪🇸 Persona","type":"text","timestamp":{"$$date":1742441392802},"read":false,"_id":"aLps3rFI3XeGAE5y"}
+{"room":"테스트1-테스트2","from":"테스트2","message":"🇰🇷 번역 실패\n🇪🇸 Error en la traducción","type":"text","timestamp":{"$$date":1742439347952},"read":true,"_id":"jBQ8rpTvki2rNZfW"}
+{"room":"all-chat","from":"테스트1","message":"🇰🇷 어제 사람을 만났어.\n🇪🇸 Ayer conocí a alguien.","type":"text","timestamp":{"$$date":1742441401355},"read":false,"_id":"jcVmAExyNSy0uKLe"}
+{"room":"테스트1-테스트2","from":"테스트1","message":"🇰🇷 번역 실패\n🇪🇸 Error en la traducción","type":"text","timestamp":{"$$date":1742439413495},"read":true,"_id":"kQl3lzCcZbOSa2re"}
+{"room":"테스트1-테스트2","from":"테스트1","message":"번역 실패\nError en la traducción","type":"text","timestamp":{"$$date":1742438465228},"read":true,"hiddenFor":[],"_id":"oSFWvKcSWp5FWTeu"}
+{"room":"테스트1-테스트3","from":"테스트3","message":"🇰🇷 좋은 아침이에요!\n🇪🇸 ¡Buenos días!","type":"text","timestamp":{"$$date":1742443458443},"read":true,"_id":"pQGigZLeWIbCOezI"}
+{"room":"테스트1-테스트2","from":"테스트1","message":"번역 실패\nError en la traducción","type":"text","timestamp":{"$$date":1742437231736},"read":true,"hiddenFor":[],"_id":"rCLL7cczOnER2cZ5"}
+{"room":"테스트1-테스트2","from":"테스트1","message":"🇰🇷 고구마\n🇪🇸 boniato","type":"text","timestamp":{"$$date":1742439752046},"read":true,"_id":"vMjz1cHyW3Xy1GxQ"}
+{"room":"테스트1-테스트2","from":"테스트1","message":"🇰🇷 감자탕\n🇪🇸 Estofado de patatas con espinazo de cerdo (감자와 돼지 등뼈찜)","type":"text","timestamp":{"$$date":1742441348458},"read":true,"_id":"yK7FHfB0oGqeIp0w"}
+{"room":"all-chat","from":"테스트2","message":"🇰🇷 채소\n🇪🇸 verdura","type":"text","timestamp":{"$$date":1742441366586},"read":false,"_id":"zsueN9GNU6TBi8sN"}

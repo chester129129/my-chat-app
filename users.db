@@ -1,0 +1,5 @@
+{"userId":"테스트3","friends":["테스트1"],"online":false,"profilePic":"/uploads/default-profile.png","_id":"XKfOPNqM3YRrA6l7"}
+{"userId":"테스트1","friends":["테스트2"],"rooms":["테스트1","테스트1-테스트2"],"profilePic":"/uploads/4f814b6d0237a73358d9d7c803119ba9","online":false,"_id":"rw9LFdT0yl68zYkC"}
+{"userId":"테스트2","friends":["테스트1"],"rooms":["테스트2","테스트1-테스트2"],"profilePic":"/uploads/default.png","online":false,"_id":"utMdv7bZHZZMoU4j"}
+{"userId":"테스트1","friends":["테스트2"],"rooms":["테스트1","테스트1-테스트2"],"profilePic":"/uploads/4f814b6d0237a73358d9d7c803119ba9","online":true,"_id":"rw9LFdT0yl68zYkC"}
+{"userId":"테스트1","friends":["테스트2"],"rooms":["테스트1","테스트1-테스트2"],"profilePic":"/uploads/d531d152601a88aa79e15def1197d9bd","online":true,"_id":"rw9LFdT0yl68zYkC"}
