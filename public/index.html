@@ -1530,10 +1530,12 @@
           const audio = document.getElementById('notification');
           audio.play().catch(err => console.log('알림 소리 재생 실패 / Error al reproducir sonido:', err));
           
-          // Earn Monera when receiving a message (1:1 채팅 및 전체 채팅 모두 적립)
-          // 신규 메시지 갯수만큼 모네라 적립
-          const newMessageCount = messageCount - currentRoomLastCount;
-          earnMonera(newMessageCount);
+          // Earn Monera when receiving a message (only for private chats)
+          if (currentRoom !== 'all-chat') {
+            // 신규 메시지 갯수만큼 모네라 적립
+            const newMessageCount = messageCount - currentRoomLastCount;
+            earnMonera(newMessageCount);
+          }
         }
         
         // 현재 채팅방의 메시지 수 업데이트
@@ -1601,9 +1603,7 @@
         const audio = document.getElementById('notification');
         audio.play().catch(err => console.log('알림 소리 재생 실패 / Error al reproducir sonido:', err));
         
-        // 전체 채팅에서도 모네라 적립 가능하도록 변경
-        const newMessageCount = messageCount - allChatLastCount;
-        earnMonera(newMessageCount);
+        // 전체 채팅에서는 모네라를 적립하지 않음
       }
       
       // 전체 채팅방의 메시지 수 업데이트
