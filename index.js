@@ -258,7 +258,7 @@ app.post('/chat', verifyUser, async (req, res) => {
 
   if (!isEmojiOnly) {
     try {
-      const result = await model.generateContent(`너는 한국어와 유럽 스페인어 전문가야. "${message}"를 자연스럽게 번역해줘.더럽거나 성적인말은 순화해서 표현해주고 무례해서는 안돼. 한국말로 높임말을 쓰면 그 다음 번역에서 1번만 한국말을 높임말로 번역해줘.너랑 대화하려는게 아니니까 너가 생각해서 응답하지말고 넌 그냥 번역한 결과만 전달하면 돼. 결과는 "한국어: [번역]\n스페인어: [번역]" 형식으로, 부가 설명 없이 두 문장만 써줘.`);
+      const result = await model.generateContent(`너는 한국어와 유럽 스페인어 전문가야. "${message}"를 자연스럽게 번역해줘.단,최대한 원문에 가깝게 번역해줘.더럽거나 성적인말은 순화해서 표현해주고 무례해서는 안돼. 한국말로 높임말을 쓰면 그 다음 번역에서 1번만 한국말을 높임말로 번역해줘.너랑 대화하려는게 아니니까 너가 생각해서 응답하지말고 넌 그냥 번역한 결과만 전달하면 돼. 결과는 "한국어: [번역]\n스페인어: [번역]" 형식으로, 부가 설명 없이 두 문장만 써줘.`);
       const lines = result.response.text().split('\n');
       const translatedKr = lines[0].replace('한국어: ', '').trim();
       const translatedEs = lines[1] ? lines[1].replace('스페인어: ', '').trim() : 'Error en la traducción';
