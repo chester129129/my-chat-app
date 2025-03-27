@@ -912,9 +912,10 @@
     }
 
     async function login() {
-      const password = document.getElementById('password').value;
       const userId = document.getElementById('userId').value;
+      const password = document.getElementById('password').value;
       const rememberMe = document.getElementById('rememberMe').checked;
+      if (!userId || !password) return;
       const res = await fetch('/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -934,6 +935,13 @@
         }
         document.getElementById('login').style.display = 'none';
         document.getElementById('main').style.display = 'block';
+        
+        // localStorage에서 채팅방별 메시지 카운트 불러오기
+        const savedCounts = localStorage.getItem(`${myId}_roomMessageCounts`);
+        if (savedCounts) {
+          roomLastMessageCounts = JSON.parse(savedCounts);
+        }
+        
         updateUserList();
         getMyMonera();
         updateSettingsProfile();
@@ -1264,15 +1272,13 @@
 
     // 로그아웃, 유저 리스트 업데이트 등 기존 함수들은 그대로 유지
     async function logout() {
-      await fetch('/logout', {
+      fetch('/logout', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ userId: myId })
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       localStorage.removeItem('token');
+      localStorage.removeItem(`${myId}_roomMessageCounts`); // 로그아웃 시 메시지 카운트 삭제
+      window.location.reload();
     }
 
     async function updateUserList() {
@@ -1524,16 +1530,17 @@
           const audio = document.getElementById('notification');
           audio.play().catch(err => console.log('알림 소리 재생 실패 / Error al reproducir sonido:', err));
           
-          // Earn Monera when receiving a message (only for private chats)
-          if (currentRoom !== 'all-chat') {
-            // 신규 메시지 갯수만큼 모네라 적립
-            const newMessageCount = messageCount - currentRoomLastCount;
-            earnMonera(newMessageCount);
-          }
+          // Earn Monera when receiving a message (1:1 채팅 및 전체 채팅 모두 적립)
+          // 신규 메시지 갯수만큼 모네라 적립
+          const newMessageCount = messageCount - currentRoomLastCount;
+          earnMonera(newMessageCount);
         }
         
         // 현재 채팅방의 메시지 수 업데이트
         roomLastMessageCounts[currentRoom] = messageCount;
+        
+        // localStorage에 채팅방별 메시지 카운트 저장
+        localStorage.setItem(`${myId}_roomMessageCounts`, JSON.stringify(roomLastMessageCounts));
         
         chat.innerHTML = '';
         messages.forEach(data => {
@@ -1586,11 +1593,25 @@
       const allUsers = await resUsers.json();
       const chat = document.getElementById('all-chat-messages');
       const messageCount = messages.length;
-      if (messageCount > lastAllMessageCount && soundEnabled && messages[messages.length - 1].from !== myId) {
+      
+      // 전체 채팅방의 마지막 메시지 수를 가져오거나, 없으면 0으로 초기화
+      const allChatLastCount = roomLastMessageCounts['all-chat'] || 0;
+      
+      if (messageCount > allChatLastCount && soundEnabled && messages.length > 0 && messages[messages.length - 1].from !== myId) {
         const audio = document.getElementById('notification');
         audio.play().catch(err => console.log('알림 소리 재생 실패 / Error al reproducir sonido:', err));
+        
+        // 전체 채팅에서도 모네라 적립 가능하도록 변경
+        const newMessageCount = messageCount - allChatLastCount;
+        earnMonera(newMessageCount);
       }
-      lastAllMessageCount = messageCount;
+      
+      // 전체 채팅방의 메시지 수 업데이트
+      roomLastMessageCounts['all-chat'] = messageCount;
+      
+      // localStorage에 채팅방별 메시지 카운트 저장
+      localStorage.setItem(`${myId}_roomMessageCounts`, JSON.stringify(roomLastMessageCounts));
+      
       chat.innerHTML = '';
       messages.forEach(data => {
         const user = allUsers.find(u => u.userId === data.from);
