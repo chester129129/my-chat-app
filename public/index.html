@@ -867,6 +867,7 @@
     let vapidPublicKey = null;
     let swRegistration = null;
     let isSubscribed = false;
+    let roomLastMessageCounts = {}; // 각 채팅방별 마지막 메시지 수를 저장할 객체
 
     const emojiCategories = {
       basic: ['😊', '😂', '😍', '😢', '👍', '👎', '❤️', '🎉'],
@@ -1515,18 +1516,25 @@
         // Check if user is already at the bottom before new message
         const isAtBottom = chat.scrollHeight - chat.scrollTop === chat.clientHeight;
         
-        if (messageCount > lastMessageCount && soundEnabled && messages[messages.length - 1].from !== myId) {
+        // 현재 채팅방의 마지막 메시지 수를 가져오거나, 없으면 0으로 초기화
+        const currentRoomLastCount = roomLastMessageCounts[currentRoom] || 0;
+        
+        // 신규 메시지가 있고, 소리 알림이 켜져 있고, 마지막 메시지가 내가 보낸 것이 아닐 때
+        if (messageCount > currentRoomLastCount && soundEnabled && messages.length > 0 && messages[messages.length - 1].from !== myId) {
           const audio = document.getElementById('notification');
           audio.play().catch(err => console.log('알림 소리 재생 실패 / Error al reproducir sonido:', err));
           
           // Earn Monera when receiving a message (only for private chats)
-          if (currentRoom !== 'all-chat' && messages[messages.length - 1].from !== myId) {
+          if (currentRoom !== 'all-chat') {
             // 신규 메시지 갯수만큼 모네라 적립
-            const newMessageCount = messageCount - lastMessageCount;
+            const newMessageCount = messageCount - currentRoomLastCount;
             earnMonera(newMessageCount);
           }
         }
-        lastMessageCount = messageCount;
+        
+        // 현재 채팅방의 메시지 수 업데이트
+        roomLastMessageCounts[currentRoom] = messageCount;
+        
         chat.innerHTML = '';
         messages.forEach(data => {
           const user = allUsers.find(u => u.userId === data.from);
