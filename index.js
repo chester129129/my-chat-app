@@ -58,6 +58,7 @@ app.post('/login', async (req, res) => {
   const { password, userId } = req.body;
   if (!userId) return res.status(400).json({ success: false, message: 'userId가 필요해요 / Necesitas un userId' });
   if (password !== process.env.PASSWORD) {
+    console.log(`로그인 실패 (비밀번호 불일치): ${userId}`);
     return res.status(401).json({ success: false, message: '비밀번호가 틀렸어요! / ¡Contraseña incorrecta!' });
   }
 
@@ -81,6 +82,7 @@ app.post('/login', async (req, res) => {
         console.log('로그인 - 유저 생성 에러 / Error al crear usuario en login:', insertError);
         return res.status(500).json({ success: false, message: '유저 생성 실패 / Error al crear usuario' });
       }
+      console.log(`📱 신규 사용자 가입 및 로그인: ${userId}`);
     } else {
       // 기존 유저 온라인 상태 업데이트
       const { error: updateError } = await supabase.from('users').update({ online: true }).eq('userId', userId);
@@ -88,6 +90,7 @@ app.post('/login', async (req, res) => {
         console.log('로그인 - 유저 업데이트 에러 / Error al actualizar usuario en login:', updateError);
         return res.status(500).json({ success: false, message: '유저 업데이트 실패 / Error al actualizar usuario' });
       }
+      console.log(`📱 사용자 로그인: ${userId}`);
     }
 
     const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '24h' });
@@ -105,17 +108,21 @@ app.post('/logout', verifyUser, async (req, res) => {
     console.log('로그아웃 에러 / Error al cerrar sesión:', error);
     return res.status(500).json({ success: false });
   }
+  console.log(`📱 사용자 로그아웃: ${userId}`);
   res.json({ success: true });
 });
 
 app.get('/users', async (req, res) => {
   try {
-    const { data, error } = await supabase.from('users').select('userId, profilePic').eq('online', true);
+    const { data, error } = await supabase.from('users').select('userId, profilePic, online').eq('online', true);
     if (error) {
       console.log('유저 가져오기 에러 / Error al obtener usuarios:', error);
       return res.status(500).json([]);
     }
-    console.log('현재 접속 중인 유저 / Usuarios conectados:', data); // 디버깅용 로그
+    
+    // 상세 로그 대신 간단한 요약 제공 (변경사항이 있을 때만 주석 해제해서 사용)
+    // console.log(`👥 접속 중인 사용자: ${data.length}명`);
+    
     res.json(data.map(u => ({ userId: u.userId, profilePic: u.profilePic || '/uploads/default-profile.png' })));
   } catch (error) {
     console.log('유저 목록 조회 중 에러 / Error al obtener lista de usuarios:', error);
@@ -139,6 +146,7 @@ app.post('/friends', verifyUser, async (req, res) => {
   const { data: user } = await supabase.from('users').select('friends').eq('userId', userId).single();
   if (!user) {
     await supabase.from('users').insert({ userId, friends: [friendId], online: true, profilePic: '/uploads/default-profile.png' });
+    console.log(`👫 친구 추가: ${userId} → ${friendId} (신규 사용자)`);
     res.json({ success: true, friendId });
   } else if (!user.friends.includes(friendId)) {
     const { error } = await supabase.from('users').update({ friends: [...user.friends, friendId] }).eq('userId', userId);
@@ -146,6 +154,7 @@ app.post('/friends', verifyUser, async (req, res) => {
       console.log('친구 추가 에러 / Error al añadir amigo:', error);
       return res.status(500).json({ success: false });
     }
+    console.log(`👫 친구 추가: ${userId} → ${friendId}`);
     res.json({ success: true, friendId });
   } else {
     res.json({ success: false, message: '이미 친구임 / Ya es amigo' });
@@ -197,6 +206,9 @@ app.get('/all-chat', async (req, res) => {
   try {
     // since 쿼리 파라미터 확인
     const sinceTimestamp = req.query.since;
+    
+    // 로그 출력 제거
+    
     let query = supabase.from('messages').select('*').eq('room', 'all-chat');
     
     if (sinceTimestamp) {
@@ -228,11 +240,19 @@ app.get('/all-chat', async (req, res) => {
       return res.status(500).json([]);
     }
     
+    // 새 메시지가 있을 때만 간결하게 로그 출력 (주기적 폴링의 경우)
+    if (sinceTimestamp && data && data.length > 0) {
+      console.log(`📢 전체 채팅 새 메시지: ${data.length}개`);
+    }
+    
+    // 초기 로딩 로그 제거
+    
     // 30개 초과 시 오래된 메시지 삭제 (기존 로직 유지)
     if (!sinceTimestamp && data.length > 30) {
       const excess = data.length - 30;
       const oldest = data.slice(0, excess).map(m => m.id);
       await supabase.from('messages').delete().in('id', oldest);
+      console.log(`🧹 전체 채팅 자동 정리: ${excess}개 메시지 삭제됨`);
     }
     
     res.json(data);
@@ -249,53 +269,18 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
 
   try {
-    console.log(`채팅 조회 요청: roomId=${roomId}, userId=${userId}`);
-    
-    // since 쿼리 파라미터 확인
+    // since 파라미터 확인 (주기적 폴링 여부 판단용)
     const sinceTimestamp = req.query.since;
     
-    // 메시지 쿼리 구성
-    let messagesQuery = supabase.from('messages').select('*').eq('room', roomId);
+    // 주기적 폴링이 아닐 때도 로그 출력하지 않음
     
-    if (sinceTimestamp) {
-      // 유효한 타임스탬프인지 확인
-      try {
-        const sinceDate = new Date(sinceTimestamp);
-        if (!isNaN(sinceDate.getTime())) {
-          // 해당 타임스탬프 이후의 메시지만 가져옴
-          messagesQuery = messagesQuery.gt('timestamp', sinceTimestamp);
-        }
-      } catch (error) {
-        console.log('타임스탬프 파싱 에러 / Error al analizar timestamp:', error);
-        // 유효하지 않은 타임스탬프면 필터링 없이 진행
-      }
-    }
-    
-    // 시간순으로 정렬
-    messagesQuery = messagesQuery.order('timestamp', { ascending: true });
-    
-    // since가 없으면 최신 50개만 가져옴 (초기 로딩)
-    if (!sinceTimestamp) {
-      messagesQuery = messagesQuery.limit(50);
-    }
-    
-    // 삭제된 메시지 정보 조회 쿼리 - 타임스탬프도 함께 가져옴
-    const deletedQuery = supabase
+    // 삭제된 메시지 정보 및 삭제 시점 조회
+    const { data: deleted, error: delError } = await supabase
       .from('deleted_messages')
       .select('messageId, timestamp')
       .eq('userId', userId)
       .eq('roomId', roomId);
       
-    // 병렬로 두 쿼리 실행
-    const [messagesRes, deletedRes] = await Promise.all([messagesQuery, deletedQuery]);
-
-    const { data: messages, error: msgError } = messagesRes;
-    if (msgError) {
-      console.log('채팅 기록 가져오기 에러 / Error al obtener historial de chat:', msgError);
-      return res.status(500).json({ success: false, message: '채팅 기록 가져오기 실패 / Error al obtener historial de chat' });
-    }
-
-    const { data: deleted, error: delError } = deletedRes;
     if (delError) {
       console.log('삭제된 메시지 가져오기 에러 / Error al obtener mensajes eliminados:', delError);
       return res.status(500).json({ success: false, message: '삭제된 메시지 가져오기 실패 / Error al obtener mensajes eliminados' });
@@ -305,40 +290,115 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
     let deleteTimestamp = '1970-01-01T00:00:00.000Z';
     if (deleted && deleted.length > 0) {
       // 가장 최근 삭제 시점 찾기
-      const timestamps = deleted.map(d => d.timestamp);
-      deleteTimestamp = timestamps.sort().pop();
-      console.log(`삭제 시점 발견: ${deleteTimestamp}, messageIds 수: ${deleted.length}`);
+      const timestamps = deleted.map(d => d.timestamp).filter(t => t); // null/undefined 제거
+      if (timestamps.length > 0) {
+        deleteTimestamp = new Date(Math.max(...timestamps.map(t => new Date(t).getTime()))).toISOString();
+        // 로그 출력하지 않음
+      }
     }
-
-    let filteredMessages;
-    if (deleted && deleted.length > 0) {
-      // 시간 기반 필터링: 삭제 시점 이후 메시지는 항상 표시, 이전 메시지는 삭제 목록 확인
-      const deletedIds = deleted.map(d => d.messageId);
-      
-      filteredMessages = messages.filter(m => {
-        // 삭제 시점 이후 메시지는 항상 표시
-        if (m.timestamp > deleteTimestamp) {
-          return true;
+    
+    let messages = [];
+    
+    if (sinceTimestamp) {
+      // Case 1: sinceTimestamp가 있는 경우 - 이 시점 이후 메시지 모두 가져오기 (limit 없음)
+      try {
+        const sinceDate = new Date(sinceTimestamp);
+        if (!isNaN(sinceDate.getTime())) {
+          const { data: recentMessages, error: msgError } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('room', roomId)
+            .gt('timestamp', sinceTimestamp)
+            .order('timestamp', { ascending: true });
+            
+          if (msgError) {
+            console.log('최근 채팅 기록 가져오기 에러 / Error al obtener historial de chat reciente:', msgError);
+            return res.status(500).json({ success: false, message: '채팅 기록 가져오기 실패 / Error al obtener historial de chat' });
+          }
+          
+          messages = recentMessages || [];
+          
+          // 새 메시지가 있을 때만 간결하게 로그 출력
+          if (messages.length > 0) {
+            console.log(`📨 새 메시지: ${roomId} (${messages.length}개)`);
+          }
         }
-        // 삭제 시점 이전 메시지는 삭제 목록에 없는 경우만 표시
-        return !deletedIds.includes(m.id);
-      });
-      
-      console.log(`메시지 필터링: 전체 ${messages.length}개 → 필터링 후 ${filteredMessages.length}개`);
+      } catch (error) {
+        console.log('타임스탬프 파싱 에러 / Error al analizar timestamp:', error);
+        // 유효하지 않은 타임스탬프 처리 - 이 경우 기본 로직으로 넘어감
+      }
     } else {
-      // 삭제된 메시지 없음
-      filteredMessages = messages;
-    }
-
-    // since가 없는 경우에만 (초기 로딩 시에만) 읽음 상태 업데이트
-    if (!sinceTimestamp) {
-      const { error: updateError } = await supabase.from('messages').update({ read: true }).eq('room', roomId).eq('read', false);
-      if (updateError) {
-        console.log('읽음 상태 업데이트 에러 / Error al actualizar estado de lectura:', updateError);
+      // Case 2: sinceTimestamp가 없는 경우 - 두 부분으로 나누어 조회
+      
+      // Case 2a: 삭제 시점 이전 메시지 - limit 적용하여 가져옴
+      const { data: beforeDeleteMessages, error: beforeError } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('room', roomId)
+        .lte('timestamp', deleteTimestamp)
+        .order('timestamp', { ascending: false }) // 내림차순으로 최근 50개
+        .limit(50);
+        
+      if (beforeError) {
+        console.log('삭제 시점 이전 메시지 가져오기 에러:', beforeError);
+        return res.status(500).json({ success: false, message: '채팅 기록 가져오기 실패' });
+      }
+      
+      // 삭제된 메시지 ID Set 생성 (효율적인 검색을 위해)
+      const deletedIds = new Set(deleted.map(d => d.messageId));
+      
+      // 삭제 시점 이전 메시지에서 삭제된 메시지 필터링
+      const filteredBeforeMessages = (beforeDeleteMessages || [])
+        .filter(m => !deletedIds.has(m.id))
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); // 시간 오름차순 정렬
+      
+      // Case 2b: 삭제 시점 이후 메시지 - 모두 가져옴 (limit 없음)
+      const { data: afterDeleteMessages, error: afterError } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('room', roomId)
+        .gt('timestamp', deleteTimestamp)
+        .order('timestamp', { ascending: true });
+        
+      if (afterError) {
+        console.log('삭제 시점 이후 메시지 가져오기 에러:', afterError);
+        return res.status(500).json({ success: false, message: '채팅 기록 가져오기 실패' });
+      }
+      
+      // 두 결과 합치기 (Map을 사용하여 중복 방지)
+      const messageMap = new Map();
+      
+      // 필터링된 삭제 시점 이전 메시지 추가
+      filteredBeforeMessages.forEach(m => messageMap.set(m.id, m));
+      
+      // 삭제 시점 이후 메시지 추가 (필터링 없이 모두)
+      (afterDeleteMessages || []).forEach(m => messageMap.set(m.id, m));
+      
+      // Map에서 배열로 변환하고 시간순 정렬
+      messages = Array.from(messageMap.values())
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      
+      // 읽음 상태 업데이트 - 상대방이 보낸 읽지 않은 메시지만
+      if (messages.length > 0) {
+        const unreadMessageIds = messages
+          .filter(m => m.from !== userId && m.read === false)
+          .map(m => m.id);
+          
+        if (unreadMessageIds.length > 0) {
+          const { error: updateError } = await supabase
+            .from('messages')
+            .update({ read: true })
+            .in('id', unreadMessageIds);
+            
+          if (updateError) {
+            console.log('읽음 상태 업데이트 에러 / Error al actualizar estado de lectura:', updateError);
+          }
+          // 읽음 처리 로그 제거
+        }
       }
     }
 
-    res.json(filteredMessages);
+    res.json(messages);
   } catch (error) {
     console.log('채팅 처리 중 예상치 못한 에러 / Error inesperado al procesar chat:', error);
     res.status(500).json([]);
@@ -382,7 +442,7 @@ app.post('/chat', verifyUser, async (req, res) => {
     return res.status(500).json({ success: false, message: '메시지 전송 실패 / Error al enviar mensaje' });
   }
   
-  // --- 푸시 알림 보내기 로직 추가 ---
+  // --- 푸시 알림 보내기 로직 수정 ---
   // 1:1 채팅이고, 전체 채팅이 아닐 때만 푸시 알림 시도
   if (roomId !== 'all-chat') {
     // 수신자 ID 찾기 (roomId는 'userId1-userId2' 형식이라고 가정)
@@ -402,7 +462,7 @@ app.post('/chat', verifyUser, async (req, res) => {
           console.error('수신자 정보 조회 에러:', recipientError);
         } else if (recipientData && recipientData.pushenabled && recipientData.pushsubscription) {
           // 수신자가 알림을 켜뒀고, 구독 정보가 있을 때만 푸시 보내기
-          console.log(`푸시 알림 전송 시도 / Intentando enviar notificación push a ${recipientId}`);
+          console.log(`🔔 푸시 알림 전송 시도: ${from} → ${recipientId}`);
           
           // 알림 내용 구성
           const notificationPayload = JSON.stringify({
@@ -418,20 +478,20 @@ app.post('/chat', verifyUser, async (req, res) => {
           // 푸시 알림 전송
           await webpush.sendNotification(recipientData.pushsubscription, notificationPayload)
             .then(response => {
-              console.log('푸시 알림 전송 성공 / Notificación push enviada:', response.statusCode);
+              console.log(`🔔 푸시 알림 전송 성공: ${from} → ${recipientId}`);
             })
             .catch(err => {
               console.error('푸시 알림 전송 실패 / Error al enviar notificación push:', err);
               // 구독이 만료되었거나 잘못된 경우 (410 Gone, 404 Not Found 등)
               if (err.statusCode === 410 || err.statusCode === 404) {
-                console.log('만료되거나 잘못된 구독 정보 삭제 시도 / Intentando eliminar suscripción expirada o inválida para:', recipientId);
+                console.log(`❌ 만료된 푸시 구독 정보 감지: ${recipientId} (삭제 처리)`);
                 // DB에서 해당 구독 정보 삭제
-                 supabase.from('users')
+                supabase.from('users')
                   .update({ pushsubscription: null, pushenabled: false })
                   .eq('userId', recipientId)
                   .then(({ error: deleteSubError }) => {
                     if (deleteSubError) console.error('만료된 구독 정보 삭제 실패:', deleteSubError);
-                    else console.log('만료된 구독 정보 삭제 성공 / Suscripción expirada eliminada');
+                    else console.log(`✅ 만료된 구독 정보 삭제 완료: ${recipientId}`);
                   });
               }
             });
@@ -650,7 +710,7 @@ app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
 
   if (!messages || messages.length === 0) {
     console.log('삭제할 메시지가 없음 / No hay mensajes para eliminar', { roomId, userId });
-    return res.json({ success: true, message: '삭제할 메시지가 없음 / No hay mensajes para eliminar' });
+    return res.json({ success: true, message: '삭제할 메시지가 없음 / No hay mensajes para eliminar', timestamp: deleteTimestamp });
   }
 
   // 기존 삭제 기록 제거 (같은 채팅방, 같은 사용자에 대해)
@@ -680,7 +740,7 @@ app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
   }
 
   console.log('삭제 기록 삽입 성공 / Registro de eliminación insertado', { roomId, userId, count: deletedEntries.length, timestamp: deleteTimestamp });
-  res.json({ success: true });
+  res.json({ success: true, timestamp: deleteTimestamp });
 });
 
 // Monera Endpoints
@@ -993,7 +1053,7 @@ app.post('/save-subscription', verifyUser, async (req, res) => {
       return res.status(500).json({ success: false, message: '구독 정보 저장 실패 / Error al guardar suscripción' });
     }
 
-    console.log('구독 정보 저장 성공 / Suscripción guardada para:', userId);
+    console.log(`🔔 푸시 알림 활성화: ${userId}`);
     res.json({ success: true });
   } catch (error) {
     console.error('구독 정보 저장 중 예외 발생:', error);
