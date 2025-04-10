@@ -1535,6 +1535,14 @@
       // 새 채팅방으로 전환 시 타임스탬프 리셋 (초기 로딩을 위해)
       latestMessageTimestamps[roomId] = null;
       
+      // 채팅방 변경 시 메시지 추적 세트 초기화
+      if (!displayedMessageIds[roomId]) {
+        displayedMessageIds[roomId] = new Set();
+      } else {
+        // 채팅방을 다시 열 때 추적 세트 초기화 (중복 메시지 방지 위해)
+        displayedMessageIds[roomId] = new Set();
+      }
+      
       loadChatHistory();
       if (pollingInterval) clearInterval(pollingInterval);
       pollingInterval = setInterval(() => {
@@ -1554,10 +1562,22 @@
         // 마지막 타임스탬프 확인
         const latestTimestamp = latestMessageTimestamps[currentRoom];
         
+        // 삭제 시점 확인 - 로컬 스토리지에서 가져오기
+        const deletedRooms = JSON.parse(localStorage.getItem('deletedRooms') || '{}');
+        const myDeleteTimestamp = deletedRooms[`${currentRoom}_${myId}`];
+        
         // 타임스탬프 기반 URL 구성
         let url = `/chat/${currentRoom}/${myId}`;
+        let hasParams = false;
+        
         if (latestTimestamp) {
           url += `?since=${encodeURIComponent(latestTimestamp)}`;
+          hasParams = true;
+        }
+        
+        // 삭제 시점 추가 (있는 경우에만)
+        if (myDeleteTimestamp) {
+          url += hasParams ? `&deleteTime=${encodeURIComponent(myDeleteTimestamp)}` : `?deleteTime=${encodeURIComponent(myDeleteTimestamp)}`;
         }
         
         const res = await fetch(url, {
