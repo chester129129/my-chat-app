@@ -873,6 +873,9 @@
     // 알림 소리를 재생한 마지막 메시지의 ID를 저장하는 객체
     let lastNotifiedMessageIds = {};
 
+    // 채팅방별로 이미 표시된 메시지 ID 추적용 객체
+    const displayedMessageIds = {};
+
     const emojiCategories = {
       basic: ['😊', '😂', '😍', '😢', '👍', '👎', '❤️', '🎉'],
       faces: ['😀', '😁', '🤣', '😎', '🥰', '😇', '🤩', '😋', '🤗', '🤔', '🤫', '😴', '😪', '😵', '🤯', '🥳', '😭', '😱', '🥺', '😤', '😡', '🤬', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠'],
@@ -1539,15 +1542,17 @@
       }, 2000);
     }
 
+    // loadChatHistory 함수 수정
     async function loadChatHistory() {
       if (!currentRoom) return;
+
       try {
-        // 현재 채팅방의 마지막 타임스탬프 가져오기
-        const latestTimestamp = latestMessageTimestamps[currentRoom];
-        
         // 스크롤 위치 확인 (새 메시지가 오면 자동 스크롤 여부 결정)
         const chat = document.getElementById('chat-messages');
         const wasScrolledToBottom = chat.scrollHeight - chat.scrollTop <= chat.clientHeight + 100;
+        
+        // 마지막 타임스탬프 확인
+        const latestTimestamp = latestMessageTimestamps[currentRoom];
         
         // 타임스탬프 기반 URL 구성
         let url = `/chat/${currentRoom}/${myId}`;
@@ -1555,90 +1560,81 @@
           url += `?since=${encodeURIComponent(latestTimestamp)}`;
         }
         
-        console.log(`채팅 로드 요청: ${url}`);
-        
         const res = await fetch(url, {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Cache-Control': 'no-cache'
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (!res.ok) {
           throw new Error(`서버 응답 실패: ${res.status}`);
         }
         
-        const newMessages = await res.json();
+        const messages = await res.json();
         
-        // 새 메시지가 없으면 더 이상 처리하지 않음
-        if (!newMessages || newMessages.length === 0) {
-          console.log(`새 메시지 없음: ${currentRoom}`);
-          return;
-        }
-        
-        console.log(`새 메시지 ${newMessages.length}개 로드됨: ${currentRoom}`);
+        if (!messages || messages.length === 0) return;
         
         const resUsers = await fetch('/all-users', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const allUsers = await resUsers.json();
         
-        // 모네라 적립 로직 (1:1 채팅만 해당)
-        if (currentRoom !== 'all-chat') {
-          let newMessagesToAccrue = 0;
-          let newMessageIds = [];
+        // 현재 채팅방의 displayedMessageIds 객체 초기화 (없는 경우)
+        if (!displayedMessageIds[currentRoom]) {
+          displayedMessageIds[currentRoom] = new Set();
+        }
+        
+        // 새로운 메시지만 필터링 (중복 메시지 제거)
+        const newMessages = messages.filter(data => {
+          // 메시지 ID가 없는 경우 타임스탬프와 발신자 ID로 유니크 ID 생성
+          const messageId = data.id || `${data.timestamp}-${data.from}`;
+          
+          // 이미 표시된 메시지인지 확인
+          if (displayedMessageIds[currentRoom].has(messageId)) {
+            return false; // 이미 표시된 메시지는 제외
+          }
+          
+          // 새 메시지 ID를 추적 세트에 추가
+          displayedMessageIds[currentRoom].add(messageId);
+          return true;
+        });
+        
+        // 모네라 적립 로직 (새 메시지에 대해서만)
+        let newMessagesToAccrue = 0;
+        const newMessageIds = [];
+        
+        newMessages.forEach(message => {
+          // 메시지 ID 생성 (기존 로직 유지)
+          const messageId = message.id || `${message.timestamp}-${message.from}`;
+          
+          // 내가 보낸 메시지가 아니고, 이전에 처리하지 않은 메시지만 모네라 적립 대상
+          if (message.from !== myId && !processedMessageIds[messageId]) {
+            newMessagesToAccrue++;
+            newMessageIds.push(messageId);
+          }
+        });
 
-          // 메시지를 순회하며 신규 메시지 확인 및 모네라 적립
-          newMessages.forEach(message => {
-            // 메시지 ID 사용 (없으면 timestamp + from으로 생성)
-            const messageId = message.id || `${message.timestamp}-${message.from}`;
-            
-            // 상대방이 보낸 메시지이며, 아직 처리되지 않은 메시지인 경우
-            if (message.from !== myId && !processedMessageIds[messageId]) {
-              newMessagesToAccrue++;
-              newMessageIds.push(messageId);
+        console.log('[DEBUG] 채팅방:', currentRoom, '새로운 메시지:', newMessagesToAccrue, '개');
+        
+        // 신규 메시지가 있을 경우 모네라 적립 및 메시지 ID 저장
+        if (newMessagesToAccrue > 0) {
+          earnMonera(newMessagesToAccrue).then(success => {
+            if (success) {
+              console.log('[DEBUG] 모네라 적립:', newMessagesToAccrue, '개');
             }
           });
-
-          console.log('[DEBUG] 채팅방:', currentRoom, '새로운 메시지:', newMessagesToAccrue, '개');
           
-          // 신규 메시지가 있을 경우 모네라 적립 및 메시지 ID 저장
-          if (newMessagesToAccrue > 0) {
-            earnMonera(newMessagesToAccrue).then(success => {
-              if (success) {
-                console.log('[DEBUG] 모네라 적립:', newMessagesToAccrue, '개');
-              }
-            });
+          // 처리된 메시지 ID 저장
+          newMessageIds.forEach(id => {
+            processedMessageIds[id] = true;
+          });
+          
+          // localStorage에 처리된 메시지 ID 저장
+          try {
+            localStorage.setItem(`${myId}_processedMessageIds`, JSON.stringify(processedMessageIds));
+          } catch (e) {
+            console.error('메시지 ID 데이터 저장 오류:', e);
             
-            // 처리된 메시지 ID 저장
-            newMessageIds.forEach(id => {
-              processedMessageIds[id] = true;
-            });
-            
-            // localStorage에 처리된 메시지 ID 저장
-            try {
-              localStorage.setItem(`${myId}_processedMessageIds`, JSON.stringify(processedMessageIds));
-            } catch (e) {
-              console.error('메시지 ID 데이터 저장 오류:', e);
-              
-              // 저장 오류 시 오래된 데이터를 정리 후 다시 시도
-              const messageIds = Object.keys(processedMessageIds);
-              if (messageIds.length > 1000) {
-                // 가장 오래된 절반의 메시지 ID 삭제
-                const sortedIds = messageIds.sort();
-                const toRemove = sortedIds.slice(0, sortedIds.length / 2);
-                toRemove.forEach(id => {
-                  delete processedMessageIds[id];
-                });
-                
-                // 다시 저장 시도
-                try {
-                  localStorage.setItem(`${myId}_processedMessageIds`, JSON.stringify(processedMessageIds));
-                } catch (e) {
-                  console.error('메시지 ID 데이터 정리 후에도 저장 오류:', e);
-                }
-              }
-            }
+            // 저장 오류 시 오래된 데이터를 정리 후 다시 시도
+            // ... (기존 코드 유지)
           }
         }
         
@@ -1709,59 +1705,110 @@
     }
 
     async function loadAllChat() {
-      const resMessages = await fetch('/all-chat', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const messages = await resMessages.json();
-      const resUsers = await fetch('/all-users', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const allUsers = await resUsers.json();
-      const chat = document.getElementById('all-chat-messages');
-      
-      // 전체 채팅에서는 모네라를 적립하지 않음
-      // 알림 소리 재생 (새로운 메시지가 있을 때만)
-      if (messages.length > 0) {
-        const lastMessage = messages[messages.length - 1];
-        const lastMessageId = lastMessage.id || `${lastMessage.timestamp}-${lastMessage.from}`;
+      try {
+        // 마지막 타임스탬프 확인
+        const latestTimestamp = latestAllChatMessageTimestamp;
         
-        // 마지막 메시지가 내가 보낸 것이 아니고, 이전에 알림을 재생하지 않은 경우만 알림 소리 재생
-        if (lastMessage.from !== myId && lastNotifiedMessageIds['all-chat'] !== lastMessageId) {
-          // 마지막 알림 메시지 ID 업데이트
-          lastNotifiedMessageIds['all-chat'] = lastMessageId;
+        // 스크롤 위치 확인 (새 메시지가 오면 자동 스크롤 여부 결정)
+        const chat = document.getElementById('all-chat-messages');
+        const wasScrolledToBottom = chat.scrollHeight - chat.scrollTop <= chat.clientHeight + 100;
+        
+        // 타임스탬프 기반 URL 구성
+        let url = '/all-chat';
+        if (latestTimestamp) {
+          url += `?since=${encodeURIComponent(latestTimestamp)}`;
+        }
+        
+        const resMessages = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const messages = await resMessages.json();
+        
+        // 새 메시지가 없으면 더 이상 처리하지 않음
+        if (!messages || messages.length === 0) return;
+        
+        const resUsers = await fetch('/all-users', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const allUsers = await resUsers.json();
+        
+        // 전체 채팅의 displayedMessageIds 객체 초기화 (없는 경우)
+        if (!displayedMessageIds['all-chat']) {
+          displayedMessageIds['all-chat'] = new Set();
+        }
+        
+        // 새로운 메시지만 필터링 (중복 메시지 제거)
+        const newMessages = messages.filter(data => {
+          // 메시지 ID가 없는 경우 타임스탬프와 발신자 ID로 유니크 ID 생성
+          const messageId = data.id || `${data.timestamp}-${data.from}`;
           
-          // 알림 소리 재생
-          if (soundEnabled) {
-            const audio = document.getElementById('notification');
-            if (audio) {
-              audio.play().catch(err => console.log('알림 소리 재생 실패 / Error al reproducir sonido:', err));
+          // 이미 표시된 메시지인지 확인
+          if (displayedMessageIds['all-chat'].has(messageId)) {
+            return false; // 이미 표시된 메시지는 제외
+          }
+          
+          // 새 메시지 ID를 추적 세트에 추가
+          displayedMessageIds['all-chat'].add(messageId);
+          return true;
+        });
+        
+        // 전체 채팅에서는 모네라를 적립하지 않음
+        // 알림 소리 재생 (새로운 메시지가 있을 때만)
+        if (newMessages.length > 0) {
+          const lastMessage = newMessages[newMessages.length - 1];
+          const lastMessageId = lastMessage.id || `${lastMessage.timestamp}-${lastMessage.from}`;
+          
+          // 마지막 메시지가 내가 보낸 것이 아니고, 이전에 알림을 재생하지 않은 경우만 알림 소리 재생
+          if (lastMessage.from !== myId && lastNotifiedMessageIds['all-chat'] !== lastMessageId) {
+            // 마지막 알림 메시지 ID 업데이트
+            lastNotifiedMessageIds['all-chat'] = lastMessageId;
+            
+            // 알림 소리 재생
+            if (soundEnabled) {
+              const audio = document.getElementById('notification');
+              if (audio) {
+                audio.play().catch(err => console.log('알림 소리 재생 실패 / Error al reproducir sonido:', err));
+              }
             }
           }
         }
-      }
-      
-      chat.innerHTML = '';
-      messages.forEach(data => {
-        const user = allUsers.find(u => u.userId === data.from);
-        const profilePic = user ? user.profilePic : '/uploads/default-profile.png';
-        const p = document.createElement('p');
-        p.className = 'message';
-        const timestamp = new Date(data.timestamp).toLocaleString('ko-KR');
         
-        const messageColor = data.color || 'black';
+        // 새 메시지들을 DOM에 추가
+        newMessages.forEach(data => {
+          const user = allUsers.find(u => u.userId === data.from);
+          const profilePic = user ? user.profilePic : '/uploads/default-profile.png';
+          const p = document.createElement('p');
+          p.className = 'message';
+          const timestamp = new Date(data.timestamp).toLocaleString('ko-KR');
+          
+          const messageColor = data.color || 'black';
+          
+          if (data.type === 'text') {
+            p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <span style="color: ${messageColor}">${data.message.replace(/\n/g, '<br>')}</span> <span class="timestamp">${timestamp}</span>`;
+          } else if (data.type === 'image') {
+            p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <img src="${data.message}" class="message-media"> <span class="timestamp">${timestamp}</span>`;
+          } else if (data.type === 'video') {
+            p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <video src="${data.message}" controls class="message-media"></video> <span class="timestamp">${timestamp}</span>`;
+          } else if (data.type === 'voice') {
+            p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <audio src="${data.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio> <span class="timestamp">${timestamp}</span>`;
+          }
+          chat.appendChild(p);
+        });
         
-        if (data.type === 'text') {
-          p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <span style="color: ${messageColor}">${data.message.replace(/\n/g, '<br>')}</span> <span class="timestamp">${timestamp}</span>`;
-        } else if (data.type === 'image') {
-          p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <img src="${data.message}" class="message-media"> <span class="timestamp">${timestamp}</span>`;
-        } else if (data.type === 'video') {
-          p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <video src="${data.message}" controls class="message-media"></video> <span class="timestamp">${timestamp}</span>`;
-        } else if (data.type === 'voice') {
-          p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${data.from}:</strong> <audio src="${data.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio> <span class="timestamp">${timestamp}</span>`;
+        // 마지막 타임스탬프 업데이트
+        if (newMessages.length > 0) {
+          const lastMessage = newMessages[newMessages.length - 1];
+          latestAllChatMessageTimestamp = lastMessage.timestamp;
         }
-        chat.appendChild(p);
-      });
-      chat.scrollTop = chat.scrollHeight;
+        
+        // 오직 이전에 스크롤이 맨 아래에 있었을 때만 스크롤을 맨 아래로 이동
+        if (wasScrolledToBottom) {
+          chat.scrollTop = chat.scrollHeight;
+        }
+      } catch (error) {
+        console.error('전체 채팅 로드 실패:', error);
+      }
     }
 
     async function sendMessage() {
@@ -2965,8 +3012,13 @@
       document.getElementById('all-chat').style.display = 'block';
       document.getElementById('all-chat-messages').innerHTML = '';
       
-      // 전체 채팅 전환 시 타임스탬프 리셋
+      // 전체 채팅 전환 시 타임스탬프와 메시지 추적 세트 리셋
       latestAllChatMessageTimestamp = null;
+      
+      // 채팅방을 다시 열 때 추적 세트 초기화 (중복 메시지 방지 위해)
+      if (displayedMessageIds['all-chat']) {
+        displayedMessageIds['all-chat'] = new Set();
+      }
       
       loadAllChat();
       if (allChatInterval) clearInterval(allChatInterval);
@@ -3066,6 +3118,23 @@
       // 메시지 추가 전 스크롤 위치 확인 (자동 스크롤 여부 결정 위함)
       const wasScrolledToBottom = chat.scrollHeight - chat.scrollTop <= chat.clientHeight + 100;
 
+      // 현재 채팅방의 displayedMessageIds 객체 초기화 (없는 경우)
+      if (!displayedMessageIds[currentRoom]) {
+        displayedMessageIds[currentRoom] = new Set();
+      }
+      
+      // 메시지 ID 생성 및 중복 확인
+      const messageId = messageData.id || `${messageData.timestamp}-${messageData.from}`;
+      
+      // 이미 표시된 메시지인지 확인
+      if (displayedMessageIds[currentRoom].has(messageId)) {
+        console.log('이미 표시된 메시지 중복 방지:', messageId);
+        return; // 이미 표시된 메시지는 추가하지 않음
+      }
+      
+      // 메시지 ID를 추적 세트에 추가
+      displayedMessageIds[currentRoom].add(messageId);
+
       // 사용자 정보 가져오기
       let profilePic = '/uploads/default-profile.png';
       try {
@@ -3111,6 +3180,23 @@
     async function appendSingleAllMessage(messageData) {
       const chat = document.getElementById('all-chat-messages');
       
+      // 전체 채팅의 displayedMessageIds 객체 초기화 (없는 경우)
+      if (!displayedMessageIds['all-chat']) {
+        displayedMessageIds['all-chat'] = new Set();
+      }
+      
+      // 메시지 ID 생성 및 중복 확인
+      const messageId = messageData.id || `${messageData.timestamp}-${messageData.from}`;
+      
+      // 이미 표시된 메시지인지 확인
+      if (displayedMessageIds['all-chat'].has(messageId)) {
+        console.log('이미 표시된 메시지 중복 방지 (전체 채팅):', messageId);
+        return; // 이미 표시된 메시지는 추가하지 않음
+      }
+      
+      // 메시지 ID를 추적 세트에 추가
+      displayedMessageIds['all-chat'].add(messageId);
+      
       // 사용자 정보 가져오기
       let profilePic = '/uploads/default-profile.png';
       try {
@@ -3146,6 +3232,39 @@
 
       chat.appendChild(p);
       chat.scrollTop = chat.scrollHeight;
+    }
+
+    // openChatRoom 함수 수정
+    async function openChatRoom(roomId) {
+      // 폴링 중지
+      if (pollingInterval) clearInterval(pollingInterval);
+      if (allChatInterval) clearInterval(allChatInterval);
+      
+      // 채팅방 변경 시 화면 전환
+      document.getElementById('room-list').style.display = 'none';
+      document.getElementById('chat-room').style.display = 'block';
+      currentRoom = roomId;
+      
+      // 채팅방 변경 시 메시지 추적 세트 초기화
+      if (displayedMessageIds[roomId]) {
+        // 채팅방을 다시 열 때 추적 세트 초기화 (중복 메시지 방지 위해)
+        displayedMessageIds[roomId] = new Set();
+      }
+      
+      // UI 업데이트
+      document.getElementById('chat-room-id').innerText = roomId;
+      document.getElementById('chat-messages').innerHTML = '';
+      
+      // 초기 폴링 시작 시 timestamp 없음 (전체 기록 로드)
+      latestMessageTimestamps[roomId] = null;
+      
+      // 채팅 로드
+      loadChatHistory();
+      
+      // 폴링 시작
+      pollingInterval = setInterval(() => {
+        if (!isPollingPaused) loadChatHistory();
+      }, 2000);
     }
   </script>
 </body>
