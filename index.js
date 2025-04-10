@@ -423,26 +423,86 @@ app.post('/chat', verifyUser, async (req, res) => {
 });
 
 app.post('/upload', verifyUser, upload.single('file'), async (req, res) => {
+  console.log('--- /upload 요청 처리 시작 ---');
+  console.log('req.body 내용:', req.body);
+  
   const { roomId, from } = req.body;
-  if (!roomId || !from || !req.file) return res.status(400).json({ success: false });
-  if (from !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
-  const fileName = `${Date.now()}-${req.file.originalname}`;
-  const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
-    contentType: req.file.mimetype,
-  });
-  if (uploadError) {
-    console.log('파일 업로드 에러 / Error al subir archivo:', uploadError);
-    return res.status(500).json({ success: false });
+  console.log('추출 시도 후 roomId:', roomId);
+  console.log('추출 시도 후 from:', from);
+  
+  // 필수 데이터 유효성 검사
+  if (!roomId || !from) {
+    console.error('roomId 또는 from 값이 없음:', { roomId, from });
+    return res.status(400).json({ success: false, message: 'roomId와 from 값이 필요합니다' });
   }
-  const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
-  const fileUrl = urlData.publicUrl;
-  const messageData = { room: roomId, from, message: fileUrl, type: req.file.mimetype.startsWith('image') ? 'image' : 'video', timestamp: new Date(), read: false };
-  const { data, error } = await supabase.from('messages').insert(messageData).select().single();
-  if (error) {
-    console.log('메시지 삽입 에러 / Error al insertar mensaje:', error);
-    return res.status(500).json({ success: false });
+  
+  if (!req.file) {
+    console.error('업로드된 파일이 없음');
+    return res.status(400).json({ success: false, message: '파일이 필요합니다' });
   }
-  res.json({ success: true, message: data });
+  
+  if (from !== req.userId) {
+    return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
+  }
+  
+  try {
+    // 원본 파일명에서 확장자만 추출
+    const originalName = req.file.originalname;
+    const extension = originalName.split('.').pop() || 'dat'; // 확장자 추출 (없으면 'dat' 기본값 사용)
+    
+    // 안전한 파일명 생성 (타임스탬프 + 확장자만 사용)
+    const fileName = `${Date.now()}.${extension}`;
+    
+    console.log('원본 파일 이름:', originalName);
+    console.log('저장될 안전한 파일 이름:', fileName);
+    
+    // 파일 업로드 처리
+    const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
+      contentType: req.file.mimetype,
+    });
+    
+    if (uploadError) {
+      console.log('파일 업로드 에러 / Error al subir archivo:', uploadError);
+      return res.status(500).json({ 
+        success: false, 
+        message: uploadError.error === 'InvalidKey' ? 
+          '파일 이름 문제로 업로드 실패했습니다.' : 
+          '파일 업로드 실패'
+      });
+    }
+    
+    // 파일 URL 가져오기
+    const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
+    const fileUrl = urlData.publicUrl;
+    
+    // 메시지 데이터 준비 및 DB 저장
+    const fileType = req.file.mimetype.startsWith('image') ? 'image' : 
+                    (req.file.mimetype.startsWith('video') ? 'video' : 'file');
+    
+    const messageData = { 
+      room: roomId, 
+      from, 
+      message: fileUrl, 
+      type: fileType, 
+      timestamp: new Date(), 
+      read: false 
+    };
+    
+    console.log('저장할 메시지 데이터:', messageData);
+    
+    const { data, error } = await supabase.from('messages').insert(messageData).select().single();
+    
+    if (error) {
+      console.log('메시지 삽입 에러 / Error al insertar mensaje:', error);
+      return res.status(500).json({ success: false, message: '메시지 저장 실패' });
+    }
+    
+    console.log('파일 업로드 및 메시지 저장 성공');
+    res.json({ success: true, message: data });
+  } catch (error) {
+    console.error('파일 업로드 처리 중 예외 발생:', error);
+    res.status(500).json({ success: false, message: '서버 오류가 발생했습니다' });
+  }
 });
 
 app.post('/upload/profile', verifyUser, upload.single('profile'), async (req, res) => {
@@ -467,7 +527,10 @@ app.post('/upload/profile', verifyUser, upload.single('profile'), async (req, re
     const oldProfilePic = userData.profilePic || '/uploads/default-profile.png';
     const isDefaultPic = oldProfilePic === '/uploads/default-profile.png';
 
+    // 안전한 파일명 생성 (타임스탬프만 사용, 확장자는 jpg로 고정)
     const fileName = `profile-${Date.now()}.jpg`;
+    console.log('프로필용 안전한 파일 이름:', fileName);
+    
     const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
       contentType: req.file.mimetype,
     });
@@ -503,23 +566,37 @@ app.post('/upload/voice', verifyUser, upload.single('voice'), async (req, res) =
   const { roomId, from } = req.body;
   if (!roomId || !from || !req.file) return res.status(400).json({ success: false });
   if (from !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
-  const fileName = `${Date.now()}-voice.wav`;
-  const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
-    contentType: 'audio/wav',
-  });
-  if (uploadError) {
-    console.log('음성 업로드 에러 / Error al subir audio:', uploadError);
-    return res.status(500).json({ success: false });
+  
+  try {
+    // 안전한 파일명 생성 (타임스탬프만 사용)
+    const fileName = `${Date.now()}-voice.wav`;
+    console.log('음성 메시지용 안전한 파일 이름:', fileName);
+    
+    const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, {
+      contentType: 'audio/wav',
+    });
+    
+    if (uploadError) {
+      console.log('음성 업로드 에러 / Error al subir audio:', uploadError);
+      return res.status(500).json({ success: false, message: '음성 메시지 업로드 실패' });
+    }
+    
+    const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
+    const fileUrl = urlData.publicUrl;
+    const messageData = { room: roomId, from, message: fileUrl, type: 'voice', timestamp: new Date(), read: false };
+    const { data, error } = await supabase.from('messages').insert(messageData).select().single();
+    
+    if (error) {
+      console.log('음성 메시지 삽입 에러 / Error al insertar mensaje de voz:', error);
+      return res.status(500).json({ success: false });
+    }
+    
+    console.log('음성 메시지 업로드 및 저장 성공');
+    res.json({ success: true, message: data });
+  } catch (error) {
+    console.error('음성 메시지 처리 중 예외 발생:', error);
+    res.status(500).json({ success: false, message: '서버 오류가 발생했습니다' });
   }
-  const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
-  const fileUrl = urlData.publicUrl;
-  const messageData = { room: roomId, from, message: fileUrl, type: 'voice', timestamp: new Date(), read: false };
-  const { data, error } = await supabase.from('messages').insert(messageData).select().single();
-  if (error) {
-    console.log('음성 메시지 삽입 에러 / Error al insertar mensaje de voz:', error);
-    return res.status(500).json({ success: false });
-  }
-  res.json({ success: true, message: data });
 });
 
 app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
