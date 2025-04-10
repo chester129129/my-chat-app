@@ -1781,7 +1781,17 @@
           setMessageColor('black', false);
           // Reset input style
           document.getElementById('message').style.color = 'black';
-          loadChatHistory();
+          
+          // 변경: loadChatHistory() 호출 대신 appendSingleMessage 함수 사용
+          if (data.message) {
+            await appendSingleMessage(data.message);
+            
+            // 마지막 메시지 타임스탬프 업데이트 (폴링이 올바르게 동작하도록)
+            if (data.message.timestamp) {
+              latestMessageTimestamps[currentRoom] = data.message.timestamp;
+            }
+          }
+          // loadChatHistory(); // 이 줄을 제거하거나 주석 처리합니다.
         } else {
           alert(data.message || '메시지 전송 실패 / Error al enviar mensaje');
         }
@@ -1794,27 +1804,44 @@
     async function sendAllMessage() {
       const message = document.getElementById('all-message').value;
       if (!message) return;
-      const res = await fetch('/chat', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          roomId: 'all-chat', 
-          from: myId, 
-          message,
-          color: allSelectedColor
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        document.getElementById('all-message').value = '';
-        // Reset color to black after sending
-        setAllMessageColor('black', false);
-        // Reset input style
-        document.getElementById('all-message').style.color = 'black';
-        loadAllChat();
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ 
+            roomId: 'all-chat', 
+            from: myId, 
+            message,
+            color: allSelectedColor
+          })
+        });
+        
+        if (!res.ok) {
+          throw new Error(`서버 응답 실패: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('all-message').value = '';
+          // Reset color to black after sending
+          setAllMessageColor('black', false);
+          // Reset input style
+          document.getElementById('all-message').style.color = 'black';
+          
+          // 변경: loadAllChat() 호출 대신 appendSingleAllMessage 함수 사용
+          if (data.message) {
+            await appendSingleAllMessage(data.message);
+          }
+          // loadAllChat(); // 이 줄을 제거하거나 주석 처리합니다.
+        } else {
+          alert(data.message || '메시지 전송 실패 / Error al enviar mensaje');
+        }
+      } catch (error) {
+        console.error('전체 메시지 전송 실패:', error);
+        alert('메시지를 보내지 못했어요. 서버 상태를 확인해주세요. / No se pudo enviar el mensaje. Por favor, verifica el estado del servidor.');
       }
     }
 
@@ -1822,19 +1849,43 @@
       const fileInput = document.getElementById('fileInput');
       const file = fileInput.files[0];
       if (!currentRoom || !file) return;
+      
       const formData = new FormData();
       formData.append('file', file);
       formData.append('roomId', currentRoom);
       formData.append('from', myId);
-      const res = await fetch('/upload', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-      const data = await res.json();
-      if (data.success) {
-        fileInput.value = '';
-        loadChatHistory();
+      
+      try {
+        const res = await fetch('/upload', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+        
+        if (!res.ok) {
+          throw new Error(`서버 응답 실패: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        if (data.success) {
+          fileInput.value = '';
+          
+          // 변경: loadChatHistory() 호출 대신 appendSingleMessage 함수 사용
+          if (data.message) {
+            await appendSingleMessage(data.message);
+            
+            // 마지막 메시지 타임스탬프 업데이트 (폴링이 올바르게 동작하도록)
+            if (data.message.timestamp) {
+              latestMessageTimestamps[currentRoom] = data.message.timestamp;
+            }
+          }
+          // loadChatHistory(); // 이 줄을 제거하거나 주석 처리합니다.
+        } else {
+          alert(data.message || '파일 전송 실패 / Error al enviar archivo');
+        }
+      } catch (error) {
+        console.error('파일 전송 실패:', error);
+        alert('파일을 보내지 못했어요. 서버 상태를 확인해주세요. / No se pudo enviar el archivo. Por favor, verifica el estado del servidor.');
       }
     }
 
@@ -1842,19 +1893,38 @@
       const fileInput = document.getElementById('all-fileInput');
       const file = fileInput.files[0];
       if (!file) return;
+      
       const formData = new FormData();
       formData.append('file', file);
       formData.append('roomId', 'all-chat');
       formData.append('from', myId);
-      const res = await fetch('/upload', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-      const data = await res.json();
-      if (data.success) {
-        fileInput.value = '';
-        loadAllChat();
+      
+      try {
+        const res = await fetch('/upload', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+        
+        if (!res.ok) {
+          throw new Error(`서버 응답 실패: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        if (data.success) {
+          fileInput.value = '';
+          
+          // 변경: loadAllChat() 호출 대신 appendSingleAllMessage 함수 사용
+          if (data.message) {
+            await appendSingleAllMessage(data.message);
+          }
+          // loadAllChat(); // 이 줄을 제거하거나 주석 처리합니다.
+        } else {
+          alert(data.message || '파일 전송 실패 / Error al enviar archivo');
+        }
+      } catch (error) {
+        console.error('전체 파일 전송 실패:', error);
+        alert('파일을 보내지 못했어요. 서버 상태를 확인해주세요. / No se pudo enviar el archivo. Por favor, verifica el estado del servidor.');
       }
     }
 
@@ -2149,14 +2219,36 @@
       formData.append('voice', audioBlob, 'voice.wav');
       formData.append('roomId', currentRoom);
       formData.append('from', myId);
-      const res = await fetch('/upload/voice', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-      const data = await res.json();
-      if (data.success) {
-        loadChatHistory();
+      
+      try {
+        const res = await fetch('/upload/voice', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+        
+        if (!res.ok) {
+          throw new Error(`서버 응답 실패: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        if (data.success) {
+          // 변경: loadChatHistory() 호출 대신 appendSingleMessage 함수 사용
+          if (data.message) {
+            await appendSingleMessage(data.message);
+            
+            // 마지막 메시지 타임스탬프 업데이트 (폴링이 올바르게 동작하도록)
+            if (data.message.timestamp) {
+              latestMessageTimestamps[currentRoom] = data.message.timestamp;
+            }
+          }
+          // loadChatHistory(); // 이 줄을 제거하거나 주석 처리합니다.
+        } else {
+          alert(data.message || '음성 메시지 전송 실패 / Error al enviar mensaje de voz');
+        }
+      } catch (error) {
+        console.error('음성 메시지 전송 실패:', error);
+        alert('음성 메시지를 보내지 못했어요. 서버 상태를 확인해주세요. / No se pudo enviar el mensaje de voz. Por favor, verifica el estado del servidor.');
       }
     }
 
@@ -2184,14 +2276,31 @@
       formData.append('voice', audioBlob, 'voice.wav');
       formData.append('roomId', 'all-chat');
       formData.append('from', myId);
-      const res = await fetch('/upload/voice', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-      const data = await res.json();
-      if (data.success) {
-        loadAllChat();
+      
+      try {
+        const res = await fetch('/upload/voice', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+        
+        if (!res.ok) {
+          throw new Error(`서버 응답 실패: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        if (data.success) {
+          // 변경: loadAllChat() 호출 대신 appendSingleAllMessage 함수 사용
+          if (data.message) {
+            await appendSingleAllMessage(data.message);
+          }
+          // loadAllChat(); // 이 줄을 제거하거나 주석 처리합니다.
+        } else {
+          alert(data.message || '음성 메시지 전송 실패 / Error al enviar mensaje de voz');
+        }
+      } catch (error) {
+        console.error('전체 음성 메시지 전송 실패:', error);
+        alert('음성 메시지를 보내지 못했어요. 서버 상태를 확인해주세요. / No se pudo enviar el mensaje de voz. Por favor, verifica el estado del servidor.');
       }
     }
 
@@ -2901,6 +3010,94 @@
       } catch (error) {
         console.error('전체 채팅 로드 실패:', error);
       }
+    }
+
+    // 새로 추가된 appendSingleMessage 함수
+    async function appendSingleMessage(messageData) {
+      const chat = document.getElementById('chat-messages');
+      // 메시지 추가 전 스크롤 위치 확인 (자동 스크롤 여부 결정 위함)
+      const wasScrolledToBottom = chat.scrollHeight - chat.scrollTop <= chat.clientHeight + 100;
+
+      // 사용자 정보 가져오기
+      let profilePic = '/uploads/default-profile.png';
+      try {
+        const resUsers = await fetch('/all-users', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const allUsers = await resUsers.json();
+        const user = allUsers.find(u => u.userId === messageData.from);
+        if (user && user.profilePic) {
+          profilePic = user.profilePic;
+        }
+      } catch (error) {
+        console.error('사용자 정보 로드 실패:', error);
+        // 기본 프로필 사진 사용
+        profilePic = messageData.from === myId ? userProfilePic : '/uploads/default-profile.png';
+      }
+
+      const p = document.createElement('p');
+      p.className = 'message';
+      const timestamp = new Date(messageData.timestamp).toLocaleString('ko-KR');
+      const messageColor = messageData.color || 'black';
+
+      // loadChatHistory의 메시지 포맷팅 로직 재사용
+      if (messageData.type === 'text') {
+        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <span style="color: ${messageColor}">${messageData.message.replace(/\n/g, '<br>')}</span> <span class="timestamp">${timestamp}</span>`;
+      } else if (messageData.type === 'image') {
+        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <img src="${messageData.message}" class="message-media"> <span class="timestamp">${timestamp}</span>`;
+      } else if (messageData.type === 'video') {
+        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <video src="${messageData.message}" controls class="message-media"></video> <span class="timestamp">${timestamp}</span>`;
+      } else if (messageData.type === 'voice') {
+        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <audio src="${messageData.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio> <span class="timestamp">${timestamp}</span>`;
+      }
+
+      chat.appendChild(p);
+
+      // 이전에 스크롤이 맨 아래에 있었다면 맨 아래로 이동
+      if (wasScrolledToBottom) {
+        chat.scrollTop = chat.scrollHeight;
+      }
+    }
+
+    // 새로 추가된 appendSingleAllMessage 함수
+    async function appendSingleAllMessage(messageData) {
+      const chat = document.getElementById('all-chat-messages');
+      
+      // 사용자 정보 가져오기
+      let profilePic = '/uploads/default-profile.png';
+      try {
+        const resUsers = await fetch('/all-users', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const allUsers = await resUsers.json();
+        const user = allUsers.find(u => u.userId === messageData.from);
+        if (user && user.profilePic) {
+          profilePic = user.profilePic;
+        }
+      } catch (error) {
+        console.error('사용자 정보 로드 실패:', error);
+        // 기본 프로필 사진 사용
+        profilePic = messageData.from === myId ? userProfilePic : '/uploads/default-profile.png';
+      }
+
+      const p = document.createElement('p');
+      p.className = 'message';
+      const timestamp = new Date(messageData.timestamp).toLocaleString('ko-KR');
+      const messageColor = messageData.color || 'black';
+
+      // loadAllChat의 메시지 포맷팅 로직 재사용
+      if (messageData.type === 'text') {
+        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <span style="color: ${messageColor}">${messageData.message.replace(/\n/g, '<br>')}</span> <span class="timestamp">${timestamp}</span>`;
+      } else if (messageData.type === 'image') {
+        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <img src="${messageData.message}" class="message-media"> <span class="timestamp">${timestamp}</span>`;
+      } else if (messageData.type === 'video') {
+        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <video src="${messageData.message}" controls class="message-media"></video> <span class="timestamp">${timestamp}</span>`;
+      } else if (messageData.type === 'voice') {
+        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <audio src="${messageData.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio> <span class="timestamp">${timestamp}</span>`;
+      }
+
+      chat.appendChild(p);
+      chat.scrollTop = chat.scrollHeight;
     }
   </script>
 </body>
