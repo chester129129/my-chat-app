@@ -249,6 +249,8 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
 
   try {
+    console.log(`채팅 조회 요청: roomId=${roomId}, userId=${userId}`);
+    
     // since 쿼리 파라미터 확인
     const sinceTimestamp = req.query.since;
     
@@ -277,10 +279,10 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
       messagesQuery = messagesQuery.limit(50);
     }
     
-    // 삭제된 메시지 정보 조회 쿼리
+    // 삭제된 메시지 정보 조회 쿼리 - 타임스탬프도 함께 가져옴
     const deletedQuery = supabase
       .from('deleted_messages')
-      .select('messageId')
+      .select('messageId, timestamp')
       .eq('userId', userId)
       .eq('roomId', roomId);
       
@@ -299,8 +301,34 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
       return res.status(500).json({ success: false, message: '삭제된 메시지 가져오기 실패 / Error al obtener mensajes eliminados' });
     }
 
-    const deletedIds = deleted.map(d => d.messageId);
-    const filteredMessages = messages.filter(m => !deletedIds.includes(m.id));
+    // 삭제 시점 가져오기 (없으면 과거 날짜 사용)
+    let deleteTimestamp = '1970-01-01T00:00:00.000Z';
+    if (deleted && deleted.length > 0) {
+      // 가장 최근 삭제 시점 찾기
+      const timestamps = deleted.map(d => d.timestamp);
+      deleteTimestamp = timestamps.sort().pop();
+      console.log(`삭제 시점 발견: ${deleteTimestamp}, messageIds 수: ${deleted.length}`);
+    }
+
+    let filteredMessages;
+    if (deleted && deleted.length > 0) {
+      // 시간 기반 필터링: 삭제 시점 이후 메시지는 항상 표시, 이전 메시지는 삭제 목록 확인
+      const deletedIds = deleted.map(d => d.messageId);
+      
+      filteredMessages = messages.filter(m => {
+        // 삭제 시점 이후 메시지는 항상 표시
+        if (m.timestamp > deleteTimestamp) {
+          return true;
+        }
+        // 삭제 시점 이전 메시지는 삭제 목록에 없는 경우만 표시
+        return !deletedIds.includes(m.id);
+      });
+      
+      console.log(`메시지 필터링: 전체 ${messages.length}개 → 필터링 후 ${filteredMessages.length}개`);
+    } else {
+      // 삭제된 메시지 없음
+      filteredMessages = messages;
+    }
 
     // since가 없는 경우에만 (초기 로딩 시에만) 읽음 상태 업데이트
     if (!sinceTimestamp) {
@@ -604,7 +632,17 @@ app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
   const userId = req.params.userId;
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
 
-  const { data: messages, error: msgError } = await supabase.from('messages').select('id').eq('room', roomId);
+  // 삭제 시점 타임스탬프 생성
+  const deleteTimestamp = new Date().toISOString();
+  console.log(`채팅 삭제 요청: roomId=${roomId}, userId=${userId}, 시점=${deleteTimestamp}`);
+
+  // 삭제 시점 이전의 메시지만 가져오기
+  const { data: messages, error: msgError } = await supabase
+    .from('messages')
+    .select('id')
+    .eq('room', roomId)
+    .lt('timestamp', deleteTimestamp); // 삭제 시점 이전 메시지만
+  
   if (msgError) {
     console.log('채팅 삭제 - 메시지 가져오기 에러 / Error al obtener mensajes para eliminar chat:', msgError);
     return res.status(500).json({ success: false, message: '메시지 가져오기 실패 / Error al obtener mensajes' });
@@ -615,19 +653,33 @@ app.post('/chat/delete/:roomId/:userId', verifyUser, async (req, res) => {
     return res.json({ success: true, message: '삭제할 메시지가 없음 / No hay mensajes para eliminar' });
   }
 
+  // 기존 삭제 기록 제거 (같은 채팅방, 같은 사용자에 대해)
+  const { error: deleteOldError } = await supabase
+    .from('deleted_messages')
+    .delete()
+    .eq('userId', userId)
+    .eq('roomId', roomId);
+  
+  if (deleteOldError) {
+    console.log('기존 삭제 기록 제거 실패 / Error al eliminar registros antiguos:', deleteOldError);
+    // 계속 진행 (중요하지 않은 오류)
+  }
+
+  // 각 메시지 ID와 함께 삭제 시점 타임스탬프 저장
   const deletedEntries = messages.map(m => ({
     userId,
     roomId,
     messageId: m.id,
-    timestamp: new Date().toISOString()
+    timestamp: deleteTimestamp // 삭제 시점 저장
   }));
+  
   const { error: insertError } = await supabase.from('deleted_messages').insert(deletedEntries);
   if (insertError) {
     console.log('채팅 삭제 - 삽입 에러 / Error al insertar eliminación de chat:', insertError);
     return res.status(500).json({ success: false, message: '삭제 기록 삽입 실패 / Error al insertar registro de eliminación' });
   }
 
-  console.log('삭제 기록 삽입 성공 / Registro de eliminación insertado', { roomId, userId, count: deletedEntries.length });
+  console.log('삭제 기록 삽입 성공 / Registro de eliminación insertado', { roomId, userId, count: deletedEntries.length, timestamp: deleteTimestamp });
   res.json({ success: true });
 });
 
