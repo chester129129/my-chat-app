@@ -1555,6 +1555,8 @@
           url += `?since=${encodeURIComponent(latestTimestamp)}`;
         }
         
+        console.log(`채팅 로드 요청: ${url}`);
+        
         const res = await fetch(url, {
           headers: { 
             'Authorization': `Bearer ${token}`,
@@ -1569,7 +1571,12 @@
         const newMessages = await res.json();
         
         // 새 메시지가 없으면 더 이상 처리하지 않음
-        if (!newMessages || newMessages.length === 0) return;
+        if (!newMessages || newMessages.length === 0) {
+          console.log(`새 메시지 없음: ${currentRoom}`);
+          return;
+        }
+        
+        console.log(`새 메시지 ${newMessages.length}개 로드됨: ${currentRoom}`);
         
         const resUsers = await fetch('/all-users', {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -1597,8 +1604,11 @@
           
           // 신규 메시지가 있을 경우 모네라 적립 및 메시지 ID 저장
           if (newMessagesToAccrue > 0) {
-            earnMonera(newMessagesToAccrue);
-            console.log('[DEBUG] 모네라 적립:', newMessagesToAccrue, '개');
+            earnMonera(newMessagesToAccrue).then(success => {
+              if (success) {
+                console.log('[DEBUG] 모네라 적립:', newMessagesToAccrue, '개');
+              }
+            });
             
             // 처리된 메시지 ID 저장
             newMessageIds.forEach(id => {
@@ -1686,7 +1696,7 @@
         }
       } catch (error) {
         console.error('채팅 기록 로드 실패:', error);
-        alert('채팅 기록을 불러오지 못했어요. 서버 상태를 확인해주세요. / No se pudo cargar el historial de chat. Por favor, verifica el estado del servidor.');
+        // 오류 메시지를 알림창으로 표시하지 않고 콘솔에만 로그 남김
       }
     }
 
@@ -2306,19 +2316,57 @@
 
     async function clearRoom() {
       if (!currentRoom || !confirm('대화 기록을 지울까요? / ¿Borrar historial de chat?')) return;
-      if (pollingInterval) clearInterval(pollingInterval);
-      const res = await fetch(`/chat/delete/${currentRoom}/${myId}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (data.success) {
-        await loadChatHistory();
-        pollingInterval = setInterval(() => {
-          if (!isPollingPaused) loadChatHistory();
-        }, 2000);
-      } else {
-        alert(data.message || '대화 지우기 실패 / No se pudo borrar el chat');
+      
+      try {
+        // 폴링 일시 중지
+        if (pollingInterval) clearInterval(pollingInterval);
+        
+        const res = await fetch(`/chat/delete/${currentRoom}/${myId}`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!res.ok) {
+          throw new Error(`서버 응답 실패: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          // 채팅창 즉시 비우기
+          document.getElementById('chat-messages').innerHTML = '';
+          
+          // 삭제 시점 타임스탬프 저장 - 서버로부터 받은 타임스탬프 사용
+          if (data.timestamp) {
+            console.log(`채팅 삭제 시점 저장: ${data.timestamp}`);
+            // 로컬 스토리지에 삭제 시점 저장
+            const deletedRooms = JSON.parse(localStorage.getItem('deletedRooms') || '{}');
+            deletedRooms[`${currentRoom}_${myId}`] = data.timestamp;
+            localStorage.setItem('deletedRooms', JSON.stringify(deletedRooms));
+          }
+          
+          // 타임스탬프 리셋 (폴링 시 전체 히스토리 다시 로드하도록)
+          latestMessageTimestamps[currentRoom] = null;
+          
+          // 폴링 재시작
+          pollingInterval = setInterval(() => {
+            if (!isPollingPaused) loadChatHistory();
+          }, 2000);
+          
+          console.log('대화 지우기 성공 및 채팅 화면 갱신 완료');
+        } else {
+          alert(data.message || '대화 지우기 실패 / No se pudo borrar el chat');
+          
+          // 폴링 재시작
+          pollingInterval = setInterval(() => {
+            if (!isPollingPaused) loadChatHistory();
+          }, 2000);
+        }
+      } catch (error) {
+        console.error('대화 지우기 실패:', error);
+        alert('대화 지우기 중 오류가 발생했습니다 / Ocurrió un error al borrar el chat');
+        
+        // 폴링 재시작
         pollingInterval = setInterval(() => {
           if (!isPollingPaused) loadChatHistory();
         }, 2000);
