@@ -1118,6 +1118,7 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log(`서버가 http://localhost:${process.env.PORT || 3000}에서 실행 중이야! / ¡El servidor está corriendo!`);
+app.listen(process.env.PORT || 3000, '0.0.0.0', () => {
+  const PORT = process.env.PORT || 3000;
+  console.log(`서버가 포트 ${PORT}, 호스트 0.0.0.0에서 실행 중이에요! / ¡El servidor está corriendo en el puerto ${PORT}, host 0.0.0.0!`);
 });
