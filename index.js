@@ -33,7 +33,7 @@ if (!vapidPublicKey || !vapidPrivateKey || !vapidSubject) {
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -269,15 +269,13 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
   if (userId !== req.userId) return res.status(403).json({ success: false, message: '권한이 없어요 / No tienes permiso' });
 
   try {
-    // since 파라미터 확인 (주기적 폴링 여부 판단용)
+    // 쿼리 파라미터 확인
     const sinceTimestamp = req.query.since;
-    
-    // 클라이언트가 제공한 삭제 시점 확인 (추가된 부분)
+    const beforeTimestamp = req.query.beforeTimestamp;
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50; // 기본값 50
     const clientDeleteTime = req.query.deleteTime;
     
-    // 주기적 폴링이 아닐 때도 로그 출력하지 않음
-    
-    // 삭제된 메시지 정보 및 삭제 시점 조회
+    // 삭제된 메시지 정보 조회
     const { data: deleted, error: delError } = await supabase
       .from('deleted_messages')
       .select('messageId, timestamp')
@@ -303,10 +301,14 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
       }
     }
     
+    // 삭제된 메시지 ID Set 생성 (효율적인 검색을 위해)
+    const deletedIds = new Set(deleted.map(d => d.messageId));
+    
     let messages = [];
+    let shouldUpdateReadStatus = false;
     
     if (sinceTimestamp) {
-      // Case 1: sinceTimestamp가 있는 경우 - 이 시점 이후 메시지 모두 가져오기 (limit 없음)
+      // Case 1: sinceTimestamp가 있는 경우 - 이 시점 이후 메시지 모두 가져오기
       try {
         const sinceDate = new Date(sinceTimestamp);
         if (!isNaN(sinceDate.getTime())) {
@@ -322,7 +324,11 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
             return res.status(500).json({ success: false, message: '채팅 기록 가져오기 실패 / Error al obtener historial de chat' });
           }
           
-          messages = recentMessages || [];
+          // 삭제된 메시지 필터링
+          messages = (recentMessages || []).filter(m => !deletedIds.has(m.id));
+          
+          // 새 메시지 로드 시 읽음 상태 업데이트 필요
+          shouldUpdateReadStatus = true;
           
           // 새 메시지가 있을 때만 간결하게 로그 출력
           if (messages.length > 0) {
@@ -331,75 +337,71 @@ app.get('/chat/:roomId/:userId', verifyUser, async (req, res) => {
         }
       } catch (error) {
         console.log('타임스탬프 파싱 에러 / Error al analizar timestamp:', error);
-        // 유효하지 않은 타임스탬프 처리 - 이 경우 기본 로직으로 넘어감
+        return res.status(400).json({ success: false, message: '유효하지 않은 타임스탬프 / Timestamp no válido' });
+      }
+    } else if (beforeTimestamp) {
+      // Case 2: beforeTimestamp가 있는 경우 - 이 시점보다 오래된 메시지 limit 개수 가져오기
+      try {
+        const beforeDate = new Date(beforeTimestamp);
+        if (!isNaN(beforeDate.getTime())) {
+          const { data: olderMessages, error: msgError } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('room', roomId)
+            .lt('timestamp', beforeTimestamp)
+            .order('timestamp', { ascending: false }) // 내림차순 정렬 (최신순)
+            .limit(limit);
+            
+          if (msgError) {
+            console.log('이전 채팅 기록 가져오기 에러 / Error al obtener historial de chat anterior:', msgError);
+            return res.status(500).json({ success: false, message: '채팅 기록 가져오기 실패 / Error al obtener historial de chat' });
+          }
+          
+          // 삭제된 메시지 필터링
+          messages = (olderMessages || []).filter(m => !deletedIds.has(m.id));
+          
+          // 과거 메시지는 시간순으로 정렬하지 않고 그대로 내림차순 반환 (클라이언트에서 정렬)
+          // 읽음 상태도 업데이트하지 않음 (과거 메시지 로드이므로)
+        }
+      } catch (error) {
+        console.log('타임스탬프 파싱 에러 / Error al analizar timestamp:', error);
+        return res.status(400).json({ success: false, message: '유효하지 않은 타임스탬프 / Timestamp no válido' });
       }
     } else {
-      // Case 2: sinceTimestamp가 없는 경우 - 두 부분으로 나누어 조회
-      
-      // Case 2a: 삭제 시점 이전 메시지 - limit 적용하여 가져옴
-      const { data: beforeDeleteMessages, error: beforeError } = await supabase
+      // Case 3: 초기 로드 (since와 beforeTimestamp 둘 다 없는 경우) - 최신 메시지 limit 개수 가져오기
+      const { data: recentMessages, error: msgError } = await supabase
         .from('messages')
         .select('*')
         .eq('room', roomId)
-        .lte('timestamp', deleteTimestamp)
-        .order('timestamp', { ascending: false }) // 내림차순으로 최근 50개
-        .limit(50);
+        .order('timestamp', { ascending: false }) // 내림차순 정렬 (최신순)
+        .limit(limit);
         
-      if (beforeError) {
-        console.log('삭제 시점 이전 메시지 가져오기 에러:', beforeError);
-        return res.status(500).json({ success: false, message: '채팅 기록 가져오기 실패' });
+      if (msgError) {
+        console.log('채팅 기록 가져오기 에러 / Error al obtener historial de chat:', msgError);
+        return res.status(500).json({ success: false, message: '채팅 기록 가져오기 실패 / Error al obtener historial de chat' });
       }
       
-      // 삭제된 메시지 ID Set 생성 (효율적인 검색을 위해)
-      const deletedIds = new Set(deleted.map(d => d.messageId));
+      // 삭제된 메시지 필터링
+      messages = (recentMessages || []).filter(m => !deletedIds.has(m.id));
       
-      // 삭제 시점 이전 메시지에서 삭제된 메시지 필터링
-      const filteredBeforeMessages = (beforeDeleteMessages || [])
-        .filter(m => !deletedIds.has(m.id))
-        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); // 시간 오름차순 정렬
-      
-      // Case 2b: 삭제 시점 이후 메시지 - 모두 가져옴 (limit 없음)
-      const { data: afterDeleteMessages, error: afterError } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('room', roomId)
-        .gt('timestamp', deleteTimestamp)
-        .order('timestamp', { ascending: true });
+      // 초기 로드 시 읽음 상태 업데이트 필요
+      shouldUpdateReadStatus = true;
+    }
+    
+    // 읽음 상태 업데이트 (초기 로드 또는 새 메시지 로드 시에만)
+    if (shouldUpdateReadStatus && messages.length > 0) {
+      const unreadMessageIds = messages
+        .filter(m => m.from !== userId && m.read === false)
+        .map(m => m.id);
         
-      if (afterError) {
-        console.log('삭제 시점 이후 메시지 가져오기 에러:', afterError);
-        return res.status(500).json({ success: false, message: '채팅 기록 가져오기 실패' });
-      }
-      
-      // 두 결과 합치기 (Map을 사용하여 중복 방지)
-      const messageMap = new Map();
-      
-      // 필터링된 삭제 시점 이전 메시지 추가
-      filteredBeforeMessages.forEach(m => messageMap.set(m.id, m));
-      
-      // 삭제 시점 이후 메시지 추가 (필터링 없이 모두)
-      (afterDeleteMessages || []).forEach(m => messageMap.set(m.id, m));
-      
-      // Map에서 배열로 변환하고 시간순 정렬
-      messages = Array.from(messageMap.values())
-        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      
-      // 읽음 상태 업데이트 - 상대방이 보낸 읽지 않은 메시지만
-      if (messages.length > 0) {
-        const unreadMessageIds = messages
-          .filter(m => m.from !== userId && m.read === false)
-          .map(m => m.id);
+      if (unreadMessageIds.length > 0) {
+        const { error: updateError } = await supabase
+          .from('messages')
+          .update({ read: true })
+          .in('id', unreadMessageIds);
           
-        if (unreadMessageIds.length > 0) {
-          const { error: updateError } = await supabase
-            .from('messages')
-            .update({ read: true })
-            .in('id', unreadMessageIds);
-            
-          if (updateError) {
-            console.log('읽음 상태 업데이트 에러 / Error al actualizar estado de lectura:', updateError);
-          }
-          // 읽음 처리 로그 제거
+        if (updateError) {
+          console.log('읽음 상태 업데이트 에러 / Error al actualizar estado de lectura:', updateError);
         }
       }
     }
@@ -421,7 +423,7 @@ app.post('/chat', verifyUser, async (req, res) => {
 
   if (!isEmojiOnly) {
     try {
-      const result = await model.generateContent(`너는 **언어와 문화를 넘어 사람들의 마음을 연결하는 데 특화된, 극도로 공감 능력이 뛰어난 한국어-유럽 스페인어 소통 전문가**야. 너의 궁극적인 목표는 두 사람이 마치 **같은 모국어를 사용하듯 자연스럽고 깊이 있게 서로를 이해하고 교감하도록 돕는 완벽한 다리**가 되는 것이야.
+      const result = await model.generateContent(`너는 **언어와 문화를 넘어 사람들의 마음을 연결하는 데 특화된, 공감 능력이 뛰어난 한국어-유럽 스페인어 소통 전문가**야. 너의 궁극적인 목표는 두 사람이 마치 **같은 모국어를 사용하듯 자연스럽고 깊이 있게 서로를 이해하고 교감하도록 돕는 완벽한 다리**가 되는 것이야.
 
 다음 메시지를 번역할 때, 단순히 단어를 바꾸는 것을 넘어 **말하는 사람의 진정한 의도, 숨겨진 감정, 성격, 그리고 그 표현 방식의 미묘한 느낌까지 포착해서** 상대방 언어로 전달해줘: \`${message}\`
 
@@ -435,6 +437,7 @@ app.post('/chat', verifyUser, async (req, res) => {
     *   한국어의 높임말/반말 사용은 단순히 문법 변환이 아니라 **관계의 거리감과 존중**을 나타내. 스페인어에서도 **그 사회적 맥락과 느낌이 어색하지 않도록** 가장 자연스러운 격식 수준(\`usted\`/\`tú\` 사용, 동사 변화, 어휘 선택 등)을 **메시지 전체의 분위기를 고려해** 신중하게 선택하고 일관성 있게 적용해줘.
 *   **배려심 있는 순화:** 거칠거나 민감한(비속어, 성적 농담 등) 표현이 있더라도, 상대방이 불쾌하지 않도록 **원래 의도했던 감정의 세기나 느낌은 최대한 유지하되, 누구에게나 보여줄 수 있는 정중하고 배려 깊은 표현**으로 다듬어줘. 번역 결과는 항상 상호 존중의 기반 위에서 이루어져야 해.
 *   **투명한 번역 도우미 역할:** 너는 오직 번역을 통해 소통을 돕는 역할이야. 메시지 내용에 대해 평가하거나, 대화에 끼어들거나, 추가 정보를 제공하지 마. 너는 보이지 않는 다리처럼 존재해야 해.
+*   **정확성과 오류방지:** 의미 왜곡, 맥락 벗어난 해석이나 불필요한 창의적 추가 철저히 금지해.특히 확인/반복 진술문을 질문문이나 다른 의도로 왜곡하는 오류 방지해(예: "일하셨군요"를 "¿Trabajaste?"로 번역 금지).원문 핵심 메시지 정확 전달, 불분명한 경우 가장 중립적이고 맥락 맞는 해석으로 우선 처리 해.
 
 **출력 형식 (반드시 지킬 것!):**
 **그 어떤 말도 덧붙이지 말고**, **인사도, 설명도, 따옴표도 없이**, **정확히 아래 두 줄 형식**으로만 결과를 줘야 해. **앞에 국기 이모지(🇰🇷, 🇪🇸)는 절대 넣지 마!** (내가 알아서 넣을 거야)
