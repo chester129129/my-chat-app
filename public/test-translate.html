@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>번역 테스트</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>번역 테스트</h1>
+    <input type="text" id="messageInput" placeholder="번역할 메시지를 입력하세요" style="width: 300px;">
+    <button onclick="testTranslate()">번역 테스트</button>
+    <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;"></div>
+
+    <script>
+        async function testTranslate() {
+            const message = document.getElementById('messageInput').value;
+            if (!message) {
+                alert('메시지를 입력하세요');
+                return;
+            }
+
+            try {
+                const response = await fetch('/test-translate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const data = await response.json();
+                document.getElementById('result').innerHTML = 
+                    '<h3>결과:</h3>' + 
+                    '<p><strong>성공:</strong> ' + data.success + '</p>' +
+                    '<p><strong>번역:</strong> ' + (data.translated || data.message || data.error) + '</p>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = 
+                    '<h3>에러:</h3><p>' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>
