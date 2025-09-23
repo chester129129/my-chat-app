@@ -43,8 +43,8 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 // 폴백 모델 목록 (속도 우선순위 순서 - 2.0 시리즈가 더 빠름)
 const modelConfigs = [
   {
-    name: 'Gemini 2.0 Flash',
-    displayName: 'gemini-2.0-flash-lite',
+    name: 'gemini-2.5-pro',
+    displayName: 'Gemini 2.0 Flash',
     config: {
       temperature: 0.7,
       topP: 0.8,
@@ -54,7 +54,7 @@ const modelConfigs = [
   },
   {
     name: 'gemini-2.0-flash-lite',
-    displayName: 'Gemini 2.0 Flash',
+    displayName: 'gemini-2.0-flash-lite',
     config: {
       temperature: 0.7,
       topP: 0.8,
