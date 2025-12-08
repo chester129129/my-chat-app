@@ -53,7 +53,7 @@ const modelConfigs = [
     }
   },
   {
-    name: 'gemini-2.0-flash-lite',
+    name: 'gemini-2.5-flash-lite',
     displayName: 'gemini-2.0-flash-lite',
     config: {
       temperature: 0.7,
