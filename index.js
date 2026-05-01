@@ -44,7 +44,7 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const modelConfigs = [
   {
     name: 'gemini-2.5-flash-lite',
-    displayName: 'Gemini 2.0 Flash',
+    displayName: 'gemini-2.5-flash-lite',
     config: {
       temperature: 0.7,
       topP: 0.8,
@@ -54,7 +54,7 @@ const modelConfigs = [
   },
   {
     name: 'gemini-2.5-flash',
-    displayName: 'gemini-2.0-flash-lite',
+    displayName: 'gemini-2.5-flash',
     config: {
       temperature: 0.7,
       topP: 0.8,
@@ -63,8 +63,8 @@ const modelConfigs = [
     }
   },
   {
-    name: 'gemini-robotics-er-1.5-preview',
-    displayName: 'Gemini 2.5 Flash',
+    name: 'gemini-3.1-flash-lite-preview',
+    displayName: 'gemini-3.1-flash-lite-preview',
     config: {
       temperature: 0.7,
       topP: 0.8,
