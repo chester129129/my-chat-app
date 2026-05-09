@@ -2017,7 +2017,7 @@
 
     async function sendMessage() {
       const message = document.getElementById('message').value;
-      if (!currentRoom || !message) return;
+      if (!currentRoom || !message.trim()) return;
       try {
         const res = await fetch('/chat', {
           method: 'POST',
@@ -2079,7 +2079,7 @@
 
     async function sendAllMessage() {
       const message = document.getElementById('all-message').value;
-      if (!message) return;
+      if (!message.trim()) return;
       try {
         const res = await fetch('/chat', {
           method: 'POST',
