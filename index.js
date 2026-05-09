@@ -777,7 +777,7 @@ app.post('/chat', verifyUser, async (req, res) => {
           });
 
           // 푸시 알림 전송
-          await webpush.sendNotification(recipientData.pushsubscription, notificationPayload)
+          webpush.sendNotification(recipientData.pushsubscription, notificationPayload)
             .then(response => {
               console.log(`🔔 푸시 알림 전송 성공: ${from} → ${recipientId}`);
             })
