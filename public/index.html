@@ -47,7 +47,11 @@
       animation: fadeIn 0.3s ease; 
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
+    /* 💡 수정된 부분: 채팅창 안의 요소들을 Flexbox로 정렬할 수 있게 만듦 */
     #chat-messages, #all-chat-messages { 
+      display: flex;
+      flex-direction: column;
       height: 60vh; 
       overflow-y: auto; 
       border: 1px solid #e0e0e0; 
@@ -56,6 +60,37 @@
       border-radius: 10px; 
       box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); 
     }
+    
+    /* 💡 수정된 부분: 메시지 말풍선 위치와 너비 조정 */
+    .message { 
+      padding: 10px 14px; 
+      margin: 6px 0; 
+      border-radius: 15px; 
+      background: #f0f4f8; 
+      font-size: 14px; 
+      max-width: 75%; /* 화면을 꽉 채우지 않고 진짜 말풍선처럼 보이게 */
+      width: fit-content;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    /* 💡 수정된 부분: 내 메시지는 오른쪽으로 찰칵! */
+    .my-message { 
+      align-self: flex-end; 
+      border-bottom-right-radius: 2px; 
+    }
+    /* 💡 수정된 부분: 상대방 메시지는 왼쪽으로 찰칵! */
+    .other-message { 
+      align-self: flex-start; 
+      border-bottom-left-radius: 2px; 
+    }
+    /* 💡 수정된 부분: 과거 대화 로딩 글씨는 가운데로! */
+    .message-loader { 
+      align-self: center; 
+      color: #888; 
+      font-size: 12px; 
+      margin: 10px 0; 
+    }
+
     #chat-room button, #all-chat button { 
       background: #ffd1dc; 
       border: none; 
@@ -221,7 +256,6 @@
       padding: 10px; 
       font-size: 16px; 
     }
-    .message { padding: 8px; margin: 5px 0; border-radius: 8px; background: #f0f4f8; font-size: 14px; }
     .timestamp { font-size: 0.7em; color: #666; }
     .settings-btn { 
       background: linear-gradient(135deg, #ffebcc, #cce5ff); 
@@ -816,7 +850,6 @@
         <div id="admin-panel" style="display:none;">
           <h4>관리자 패널 / Panel de administrador</h4>
           
-          <!-- Admin Monera Management -->
           <div class="admin-section">
             <h5>모네라 관리 / Gestión de Monera</h5>
             <div>
@@ -830,12 +863,10 @@
             <button onclick="adminAddMonera()">모네라 추가 / Añadir Monera</button>
           </div>
           
-          <!-- All users Monera display -->
           <div class="admin-section">
             <h5>모든 사용자 모네라 / Monera de todos los usuarios</h5>
             <div id="all-users-monera" class="users-list">
-              <!-- User Monera data will be populated here -->
-            </div>
+              </div>
             <button onclick="loadAllUsersMonera()">새로고침 / Actualizar</button>
           </div>
         </div>
@@ -1925,96 +1956,6 @@
       isPollingPaused = false;
     }
 
-    async function loadAllChat() {
-      try {
-        // 마지막 타임스탬프 확인
-        const latestTimestamp = latestAllChatMessageTimestamp;
-        
-        // 스크롤 위치 확인 (새 메시지가 오면 자동 스크롤 여부 결정)
-        const chat = document.getElementById('all-chat-messages');
-        const wasScrolledToBottom = chat.scrollHeight - chat.scrollTop <= chat.clientHeight + 100;
-        
-        // 타임스탬프 기반 URL 구성
-        let url = '/all-chat';
-        if (latestTimestamp) {
-          url += `?since=${encodeURIComponent(latestTimestamp)}`;
-        }
-        
-        const resMessages = await fetch(url, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const messages = await resMessages.json();
-        
-        // 새 메시지가 없으면 더 이상 처리하지 않음
-        if (!messages || messages.length === 0) return;
-        
-        const resUsers = await fetch('/all-users', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const allUsers = await resUsers.json();
-        
-        // 전체 채팅의 displayedMessageIds 객체 초기화 (없는 경우)
-        if (!displayedMessageIds['all-chat']) {
-          displayedMessageIds['all-chat'] = new Set();
-        }
-        
-        // 새로운 메시지만 필터링 (중복 메시지 제거)
-        const newMessages = messages.filter(data => {
-          // 메시지 ID가 없는 경우 타임스탬프와 발신자 ID로 유니크 ID 생성
-          const messageId = data.id || `${data.timestamp}-${data.from}`;
-          
-          // 이미 표시된 메시지인지 확인
-          if (displayedMessageIds['all-chat'].has(messageId)) {
-            return false; // 이미 표시된 메시지는 제외
-          }
-          
-          // 새 메시지 ID를 추적 세트에 추가
-          displayedMessageIds['all-chat'].add(messageId);
-          return true;
-        });
-        
-        // 전체 채팅에서는 모네라를 적립하지 않음
-        // 알림 소리 재생 (새로운 메시지가 있을 때만)
-        if (newMessages.length > 0) {
-          const lastMessage = newMessages[newMessages.length - 1];
-          const lastMessageId = lastMessage.id || `${lastMessage.timestamp}-${lastMessage.from}`;
-          
-          // 마지막 메시지가 내가 보낸 것이 아니고, 이전에 알림을 재생하지 않은 경우만 알림 소리 재생
-          if (lastMessage.from !== myId && lastNotifiedMessageIds['all-chat'] !== lastMessageId) {
-            // 마지막 알림 메시지 ID 업데이트
-            lastNotifiedMessageIds['all-chat'] = lastMessageId;
-            
-            // 알림 소리 재생
-            if (soundEnabled) {
-              const audio = document.getElementById('notification');
-              if (audio) {
-                audio.play().catch(err => console.log('알림 소리 재생 실패 / Error al reproducir sonido:', err));
-              }
-            }
-          }
-        }
-        
-        // 새 메시지들을 DOM에 추가
-        for (const data of newMessages) {
-          await appendSingleAllMessage(data, allUsers);
-        }
-        
-        // 마지막 타임스탬프 업데이트
-        if (newMessages.length > 0) {
-          const lastMessage = newMessages[newMessages.length - 1];
-          latestAllChatMessageTimestamp = lastMessage.timestamp;
-        }
-        
-        // 오직 이전에 스크롤이 맨 아래에 있었을 때만 스크롤을 맨 아래로 이동
-        if (wasScrolledToBottom) {
-          chat.scrollTop = chat.scrollHeight;
-        }
-      } catch (error) {
-        console.error('전체 채팅 로드 실패:', error);
-      }
-    }
-
     async function sendMessage() {
       const message = document.getElementById('message').value;
       if (!currentRoom || !message.trim()) return;
@@ -2283,240 +2224,6 @@
       }
     }
 
-    function showEmojiPicker() {
-      const picker = document.getElementById('emoji-picker');
-      picker.style.display = picker.style.display === 'block' ? 'none' : 'block';
-      if (picker.style.display !== 'block') return;
-      
-      picker.innerHTML = '';
-      
-      // Add close button
-      const closeBtn = document.createElement('button');
-      closeBtn.className = 'emoji-close-btn';
-      closeBtn.innerHTML = '&times;';
-      closeBtn.onclick = () => {
-        picker.style.display = 'none';
-      };
-      picker.appendChild(closeBtn);
-      
-      // Create category selection
-      const categories = document.createElement('div');
-      categories.className = 'emoji-categories';
-      Object.keys(emojiCategories).forEach(category => {
-        const btn = document.createElement('button');
-        btn.className = 'emoji-category-btn' + (category === selectedCategory ? ' active' : '');
-        btn.innerText = category === 'basic' ? '기본 / Básico' : 
-                        category === 'faces' ? '표정 / Caras' : 
-                        category === 'animals' ? '동물 / Animales' : 
-                        category === 'food' ? '음식 / Comida' : 
-                        category === 'activities' ? '활동 / Actividades' : '여행 / Viajes';
-        btn.onclick = (e) => {
-          e.stopPropagation();
-          
-          // Update active class for categories
-          document.querySelectorAll('.emoji-category-btn').forEach(b => {
-            b.classList.remove('active');
-          });
-          btn.classList.add('active');
-          
-          selectedCategory = category;
-          
-          // Update emoji grid without closing picker
-          updateEmojiGrid(picker);
-        };
-        categories.appendChild(btn);
-      });
-      picker.appendChild(categories);
-      
-      // Create emoji grid
-      updateEmojiGrid(picker);
-      
-      picker.style.left = '50%';
-      picker.style.top = '80%';
-    }
-    
-    function updateEmojiGrid(picker) {
-      // 기존 그리드 제거
-      const existingGrid = picker.querySelector('.emoji-grid');
-      if (existingGrid) {
-        picker.removeChild(existingGrid);
-      }
-      
-      const grid = document.createElement('div');
-      grid.className = 'emoji-grid';
-      
-      emojiCategories[selectedCategory].forEach((emoji, index) => {
-        const btn = document.createElement('button');
-        btn.className = 'emoji-btn' + (selectedCategory !== 'basic' && index >= 8 ? ' premium-item' : '');
-        btn.innerText = emoji;
-        btn.onclick = () => {
-          const messageInput = document.getElementById('message');
-          const cursorPos = messageInput.selectionStart;
-          const textBefore = messageInput.value.substring(0, cursorPos);
-          const textAfter = messageInput.value.substring(cursorPos);
-          
-          if (selectedCategory !== 'basic' && index >= 8) {
-            // 프리미엄 이모지
-            if (userMonera >= 5) {
-              showConfirmDialog(
-                `모네라 5개를 사용하여 이모지를 사용하시겠습니까? / ¿Quieres usar 5 Monera para usar este emoji?`,
-                () => {
-                  spendMonera(5).then(success => {
-                    if (success) {
-                      // 커서 위치에 이모지 삽입
-                      messageInput.value = textBefore + emoji + textAfter;
-                      
-                      // 커서 위치를 이모지 뒤로 이동
-                      messageInput.selectionStart = cursorPos + emoji.length;
-                      messageInput.selectionEnd = cursorPos + emoji.length;
-                      messageInput.focus();
-                      
-                      // 피커 닫기
-                      picker.style.display = 'none';
-                    }
-                  });
-                }
-              );
-            } else {
-              alert('모네라가 부족해요! / ¡No tienes suficiente Monera!');
-            }
-          } else {
-            // 무료 이모지
-            // 커서 위치에 이모지 삽입
-            messageInput.value = textBefore + emoji + textAfter;
-            
-            // 커서 위치를 이모지 뒤로 이동
-            messageInput.selectionStart = cursorPos + emoji.length;
-            messageInput.selectionEnd = cursorPos + emoji.length;
-            messageInput.focus();
-            
-            // 피커 닫기
-            picker.style.display = 'none';
-          }
-        };
-        grid.appendChild(btn);
-      });
-      
-      picker.appendChild(grid);
-    }
-
-    function showEmojiPickerAll() {
-      const picker = document.getElementById('emoji-picker-all');
-      picker.style.display = picker.style.display === 'block' ? 'none' : 'block';
-      if (picker.style.display !== 'block') return;
-      
-      picker.innerHTML = '';
-      
-      // Add close button
-      const closeBtn = document.createElement('button');
-      closeBtn.className = 'emoji-close-btn';
-      closeBtn.innerHTML = '&times;';
-      closeBtn.onclick = () => {
-        picker.style.display = 'none';
-      };
-      picker.appendChild(closeBtn);
-      
-      // Create category selection
-      const categories = document.createElement('div');
-      categories.className = 'emoji-categories';
-      Object.keys(emojiCategories).forEach(category => {
-        const btn = document.createElement('button');
-        btn.className = 'emoji-category-btn' + (category === selectedCategory ? ' active' : '');
-        btn.innerText = category === 'basic' ? '기본 / Básico' : 
-                        category === 'faces' ? '표정 / Caras' : 
-                        category === 'animals' ? '동물 / Animales' : 
-                        category === 'food' ? '음식 / Comida' : 
-                        category === 'activities' ? '활동 / Actividades' : '여행 / Viajes';
-        btn.onclick = (e) => {
-          e.stopPropagation();
-          
-          // Update active class for categories
-          document.querySelectorAll('#emoji-picker-all .emoji-category-btn').forEach(b => {
-            b.classList.remove('active');
-          });
-          btn.classList.add('active');
-          
-          selectedCategory = category;
-          
-          // Update emoji grid without closing picker
-          updateEmojiGridAll(picker);
-        };
-        categories.appendChild(btn);
-      });
-      picker.appendChild(categories);
-      
-      // Create emoji grid
-      updateEmojiGridAll(picker);
-      
-      picker.style.left = '50%';
-      picker.style.top = '80%';
-    }
-    
-    function updateEmojiGridAll(picker) {
-      // 기존 그리드 제거
-      const existingGrid = picker.querySelector('.emoji-grid');
-      if (existingGrid) {
-        picker.removeChild(existingGrid);
-      }
-      
-      const grid = document.createElement('div');
-      grid.className = 'emoji-grid';
-      
-      emojiCategories[selectedCategory].forEach((emoji, index) => {
-        const btn = document.createElement('button');
-        btn.className = 'emoji-btn' + (selectedCategory !== 'basic' && index >= 8 ? ' premium-item' : '');
-        btn.innerText = emoji;
-        btn.onclick = () => {
-          const messageInput = document.getElementById('all-message');
-          const cursorPos = messageInput.selectionStart;
-          const textBefore = messageInput.value.substring(0, cursorPos);
-          const textAfter = messageInput.value.substring(cursorPos);
-          
-          if (selectedCategory !== 'basic' && index >= 8) {
-            // 프리미엄 이모지
-            if (userMonera >= 5) {
-              showConfirmDialog(
-                `모네라 5개를 사용하여 이모지를 사용하시겠습니까? / ¿Quieres usar 5 Monera para usar este emoji?`,
-                () => {
-                  spendMonera(5).then(success => {
-                    if (success) {
-                      // 커서 위치에 이모지 삽입
-                      messageInput.value = textBefore + emoji + textAfter;
-                      
-                      // 커서 위치를 이모지 뒤로 이동
-                      messageInput.selectionStart = cursorPos + emoji.length;
-                      messageInput.selectionEnd = cursorPos + emoji.length;
-                      messageInput.focus();
-                      
-                      // 피커 닫기
-                      picker.style.display = 'none';
-                    }
-                  });
-                }
-              );
-            } else {
-              alert('모네라가 부족해요! / ¡No tienes suficiente Monera!');
-            }
-          } else {
-            // 무료 이모지
-            // 커서 위치에 이모지 삽입
-            messageInput.value = textBefore + emoji + textAfter;
-            
-            // 커서 위치를 이모지 뒤로 이동
-            messageInput.selectionStart = cursorPos + emoji.length;
-            messageInput.selectionEnd = cursorPos + emoji.length;
-            messageInput.focus();
-            
-            // 피커 닫기
-            picker.style.display = 'none';
-          }
-        };
-        grid.appendChild(btn);
-      });
-      
-      picker.appendChild(grid);
-    }
-
     async function startRecording() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder = new MediaRecorder(stream);
@@ -2575,7 +2282,7 @@
             const chat = document.getElementById('chat-messages');
             chat.scrollTop = chat.scrollHeight;
             
-            // 마지막 메시지 타임스탬프 업데이트 (폴링이 올바르게 동작하도록)
+            // 마지막 메시 타임스탬프 업데이트 (폴링이 올바르게 동작하도록)
             if (data.message.timestamp) {
               latestMessageTimestamps[currentRoom] = data.message.timestamp;
             }
@@ -2935,71 +2642,6 @@
       }
     }
     
-    function updateEmojiGrid(picker) {
-      // 기존 그리드 제거
-      const existingGrid = picker.querySelector('.emoji-grid');
-      if (existingGrid) {
-        picker.removeChild(existingGrid);
-      }
-      
-      const grid = document.createElement('div');
-      grid.className = 'emoji-grid';
-      
-      emojiCategories[selectedCategory].forEach((emoji, index) => {
-        const btn = document.createElement('button');
-        btn.className = 'emoji-btn' + (selectedCategory !== 'basic' && index >= 8 ? ' premium-item' : '');
-        btn.innerText = emoji;
-        btn.onclick = () => {
-          const messageInput = document.getElementById('message');
-          const cursorPos = messageInput.selectionStart;
-          const textBefore = messageInput.value.substring(0, cursorPos);
-          const textAfter = messageInput.value.substring(cursorPos);
-          
-          if (selectedCategory !== 'basic' && index >= 8) {
-            // 프리미엄 이모지
-            if (userMonera >= 5) {
-              showConfirmDialog(
-                `모네라 5개를 사용하여 이모지를 사용하시겠습니까? / ¿Quieres usar 5 Monera para usar este emoji?`,
-                () => {
-                  spendMonera(5).then(success => {
-                    if (success) {
-                      // 커서 위치에 이모지 삽입
-                      messageInput.value = textBefore + emoji + textAfter;
-                      
-                      // 커서 위치를 이모지 뒤로 이동
-                      messageInput.selectionStart = cursorPos + emoji.length;
-                      messageInput.selectionEnd = cursorPos + emoji.length;
-                      messageInput.focus();
-                      
-                      // 피커 닫기
-                      picker.style.display = 'none';
-                    }
-                  });
-                }
-              );
-            } else {
-              alert('모네라가 부족해요! / ¡No tienes suficiente Monera!');
-            }
-          } else {
-            // 무료 이모지
-            // 커서 위치에 이모지 삽입
-            messageInput.value = textBefore + emoji + textAfter;
-            
-            // 커서 위치를 이모지 뒤로 이동
-            messageInput.selectionStart = cursorPos + emoji.length;
-            messageInput.selectionEnd = cursorPos + emoji.length;
-            messageInput.focus();
-            
-            // 피커 닫기
-            picker.style.display = 'none';
-          }
-        };
-        grid.appendChild(btn);
-      });
-      
-      picker.appendChild(grid);
-    }
-    
     function updateMessagePreview() {
       // 미리보기 기능을 비활성화하여 입력창에 직접 색상이 적용되도록 함
       document.getElementById('message-preview').style.display = 'none';
@@ -3254,20 +2896,6 @@
     }
 
     // Helper functions for UI
-    function showNotification(message) {
-      const notification = document.createElement('div');
-      notification.className = 'notification';
-      notification.textContent = message;
-      document.body.appendChild(notification);
-      
-      setTimeout(() => {
-        notification.style.opacity = '0';
-        setTimeout(() => {
-          document.body.removeChild(notification);
-        }, 300);
-      }, 3000);
-    }
-
     function showConfirmDialog(message, onConfirm) {
       // Remove any existing modal
       const existingModal = document.querySelector('.modal-overlay');
@@ -3334,76 +2962,6 @@
       allChatInterval = setInterval(loadAllChat, 2000);
     }
 
-    async function loadAllChat() {
-      try {
-        // 마지막 타임스탬프 확인
-        const latestTimestamp = latestAllChatMessageTimestamp;
-        
-        // 스크롤 위치 확인 (새 메시지가 오면 자동 스크롤 여부 결정)
-        const chat = document.getElementById('all-chat-messages');
-        const wasScrolledToBottom = chat.scrollHeight - chat.scrollTop <= chat.clientHeight + 100;
-        
-        // 타임스탬프 기반 URL 구성
-        let url = '/all-chat';
-        if (latestTimestamp) {
-          url += `?since=${encodeURIComponent(latestTimestamp)}`;
-        }
-        
-        const resMessages = await fetch(url, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const newMessages = await resMessages.json();
-        
-        // 새 메시지가 없으면 더 이상 처리하지 않음
-        if (!newMessages || newMessages.length === 0) return;
-        
-        const resUsers = await fetch('/all-users', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const allUsers = await resUsers.json();
-        
-        // 전체 채팅에서는 모네라를 적립하지 않음
-        // 알림 소리 재생 (새로운 메시지가 있을 때만)
-        if (newMessages.length > 0) {
-          const lastMessage = newMessages[newMessages.length - 1];
-          const lastMessageId = lastMessage.id || `${lastMessage.timestamp}-${lastMessage.from}`;
-          
-          // 마지막 메시지가 내가 보낸 것이 아니고, 이전에 알림을 재생하지 않은 경우만 알림 소리 재생
-          if (lastMessage.from !== myId && lastNotifiedMessageIds['all-chat'] !== lastMessageId) {
-            // 마지막 알림 메시지 ID 업데이트
-            lastNotifiedMessageIds['all-chat'] = lastMessageId;
-            
-            // 알림 소리 재생
-            if (soundEnabled) {
-              const audio = document.getElementById('notification');
-              if (audio) {
-                audio.play().catch(err => console.log('알림 소리 재생 실패 / Error al reproducir sonido:', err));
-              }
-            }
-          }
-        }
-        
-        // 새 메시지들을 DOM에 추가
-        for (const data of newMessages) {
-          await appendSingleAllMessage(data, allUsers);
-        }
-        
-        // 마지막 타임스탬프 업데이트
-        if (newMessages.length > 0) {
-          const lastMessage = newMessages[newMessages.length - 1];
-          latestAllChatMessageTimestamp = lastMessage.timestamp;
-        }
-        
-        // 오직 이전에 스크롤이 맨 아래에 있었을 때만 스크롤을 맨 아래로 이동
-        if (wasScrolledToBottom) {
-          chat.scrollTop = chat.scrollHeight;
-        }
-      } catch (error) {
-        console.error('전체 채팅 로드 실패:', error);
-      }
-    }
-
     // 새로 추가된 appendSingleMessage 함수
     async function appendSingleMessage(messageData) {
       const chat = document.getElementById('chat-messages');
@@ -3444,20 +3002,31 @@
         profilePic = messageData.from === myId ? userProfilePic : '/uploads/default-profile.png';
       }
 
-      const p = document.createElement('p');
-      p.className = 'message';
+      // 💡 수정된 부분: div 로 변경하고 클래스 추가
+      const p = document.createElement('div');
+      const isMyMessage = messageData.from === myId;
+      p.className = isMyMessage ? 'message my-message' : 'message other-message';
+      
       const timestamp = new Date(messageData.timestamp).toLocaleString('ko-KR');
       const messageColor = messageData.color || 'black';
 
-      // loadChatHistory의 메시지 포맷팅 로직 재사용
+      // 💡 수정된 부분: 메시지 내용 HTML 구성
+      let contentHTML = '';
       if (messageData.type === 'text') {
-        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <span style="color: ${messageColor}">${messageData.message.replace(/\n/g, '<br>')}</span> <span class="timestamp">${timestamp}</span>`;
+        contentHTML = `<span style="color: ${messageColor}">${messageData.message.replace(/\n/g, '<br>')}</span>`;
       } else if (messageData.type === 'image') {
-        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <img src="${messageData.message}" class="message-media"> <span class="timestamp">${timestamp}</span>`;
+        contentHTML = `<img src="${messageData.message}" class="message-media">`;
       } else if (messageData.type === 'video') {
-        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <video src="${messageData.message}" controls class="message-media"></video> <span class="timestamp">${timestamp}</span>`;
+        contentHTML = `<video src="${messageData.message}" controls class="message-media"></video>`;
       } else if (messageData.type === 'voice') {
-        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <audio src="${messageData.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio> <span class="timestamp">${timestamp}</span>`;
+        contentHTML = `<audio src="${messageData.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio>`;
+      }
+
+      // 💡 수정된 부분: 내 메시지일 때는 이름을 숨기고 프로필 사진을 오른쪽에 배치
+      if (isMyMessage) {
+        p.innerHTML = `${contentHTML} <span class="timestamp" style="margin-left: 8px;">${timestamp}</span> <img src="${profilePic}" class="profile-pic" style="margin-left: 5px; margin-right: 0;">`;
+      } else {
+        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> ${contentHTML} <span class="timestamp" style="margin-left: 8px;">${timestamp}</span>`;
       }
 
       chat.appendChild(p);
@@ -3501,20 +3070,31 @@
         profilePic = messageData.from === myId ? userProfilePic : '/uploads/default-profile.png';
       }
 
-      const p = document.createElement('p');
-      p.className = 'message';
+      // 💡 수정된 부분: div 로 변경하고 클래스 추가
+      const p = document.createElement('div');
+      const isMyMessage = messageData.from === myId;
+      p.className = isMyMessage ? 'message my-message' : 'message other-message';
+      
       const timestamp = new Date(messageData.timestamp).toLocaleString('ko-KR');
       const messageColor = messageData.color || 'black';
 
-      // loadAllChat의 메시지 포맷팅 로직 재사용
+      // 💡 수정된 부분: 메시지 내용 HTML 구성
+      let contentHTML = '';
       if (messageData.type === 'text') {
-        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <span style="color: ${messageColor}">${messageData.message.replace(/\n/g, '<br>')}</span> <span class="timestamp">${timestamp}</span>`;
+        contentHTML = `<span style="color: ${messageColor}">${messageData.message.replace(/\n/g, '<br>')}</span>`;
       } else if (messageData.type === 'image') {
-        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <img src="${messageData.message}" class="message-media"> <span class="timestamp">${timestamp}</span>`;
+        contentHTML = `<img src="${messageData.message}" class="message-media">`;
       } else if (messageData.type === 'video') {
-        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <video src="${messageData.message}" controls class="message-media"></video> <span class="timestamp">${timestamp}</span>`;
+        contentHTML = `<video src="${messageData.message}" controls class="message-media"></video>`;
       } else if (messageData.type === 'voice') {
-        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <audio src="${messageData.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio> <span class="timestamp">${timestamp}</span>`;
+        contentHTML = `<audio src="${messageData.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio>`;
+      }
+
+      // 💡 수정된 부분: 내 메시지일 때는 이름을 숨기고 프로필 사진을 오른쪽에 배치
+      if (isMyMessage) {
+        p.innerHTML = `${contentHTML} <span class="timestamp" style="margin-left: 8px;">${timestamp}</span> <img src="${profilePic}" class="profile-pic" style="margin-left: 5px; margin-right: 0;">`;
+      } else {
+        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> ${contentHTML} <span class="timestamp" style="margin-left: 8px;">${timestamp}</span>`;
       }
 
       chat.appendChild(p);
@@ -3588,21 +3168,32 @@
         profilePic = messageData.from === myId ? userProfilePic : '/uploads/default-profile.png';
       }
       
-      // 메시지 DOM 요소 생성
-      const p = document.createElement('p');
-      p.className = 'message';
+      // 💡 수정된 부분: div 로 변경하고 클래스 추가
+      const p = document.createElement('div');
+      const isMyMessage = messageData.from === myId;
+      p.className = isMyMessage ? 'message my-message' : 'message other-message';
       p.dataset.id = messageId; // 메시지 ID를 데이터 속성으로 저장
+      
       const timestamp = new Date(messageData.timestamp).toLocaleString('ko-KR');
       const messageColor = messageData.color || 'black';
       
+      // 💡 수정된 부분: 메시지 내용 HTML 구성
+      let contentHTML = '';
       if (messageData.type === 'text') {
-        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <span style="color: ${messageColor}">${messageData.message.replace(/\n/g, '<br>')}</span> <span class="timestamp">${timestamp}</span>`;
+        contentHTML = `<span style="color: ${messageColor}">${messageData.message.replace(/\n/g, '<br>')}</span>`;
       } else if (messageData.type === 'image') {
-        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <img src="${messageData.message}" class="message-media"> <span class="timestamp">${timestamp}</span>`;
+        contentHTML = `<img src="${messageData.message}" class="message-media">`;
       } else if (messageData.type === 'video') {
-        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <video src="${messageData.message}" controls class="message-media"></video> <span class="timestamp">${timestamp}</span>`;
+        contentHTML = `<video src="${messageData.message}" controls class="message-media"></video>`;
       } else if (messageData.type === 'voice') {
-        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> <audio src="${messageData.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio> <span class="timestamp">${timestamp}</span>`;
+        contentHTML = `<audio src="${messageData.message}" controls onplay="pausePolling()" onended="resumePolling()"></audio>`;
+      }
+
+      // 💡 수정된 부분: 내 메시지일 때는 이름을 숨기고 프로필 사진을 오른쪽에 배치
+      if (isMyMessage) {
+        p.innerHTML = `${contentHTML} <span class="timestamp" style="margin-left: 8px;">${timestamp}</span> <img src="${profilePic}" class="profile-pic" style="margin-left: 5px; margin-right: 0;">`;
+      } else {
+        p.innerHTML = `<img src="${profilePic}" class="profile-pic"><strong>${messageData.from}:</strong> ${contentHTML} <span class="timestamp" style="margin-left: 8px;">${timestamp}</span>`;
       }
       
       // DOM에 메시지 추가 (위치에 따라)
