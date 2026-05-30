@@ -40,21 +40,21 @@ if (!process.env.GOOGLE_API_KEY) {
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-// 폴백 모델 목록 (비용 절감 및 속도 최적화 황금 순서)
+// 폴백 모델 목록 (한 달 1,000원 방어! 가성비 & 초고속 세팅)
 const modelConfigs = [
   {
-    name: 'gemini-3.1-flash',
-    displayName: 'gemini-3.1-flash (메인 에이스)',
+    name: 'gemini-3.1-flash-lite',
+    displayName: 'gemini-3.1-flash-lite (초고속 메인 에이스)',
     config: {
       temperature: 0.7,
       topP: 0.8,
-      topK: 15, // 문맥 파악과 자연스러운 번역을 위해 약간 낮춤
+      topK: 20,
       maxOutputTokens: 4096,
     }
   },
   {
     name: 'gemini-3.1-flash-lite-preview',
-    displayName: 'gemini-3.1-flash-lite (초고속 보조)',
+    displayName: 'gemini-3.1-flash-lite-preview (검증된 보조 대타)',
     config: {
       temperature: 0.7,
       topP: 0.8,
