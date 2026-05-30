@@ -40,11 +40,21 @@ if (!process.env.GOOGLE_API_KEY) {
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-// 폴백 모델 목록 (속도 우선순위 순서 - 2.0 시리즈가 더 빠름)
+// 폴백 모델 목록 (비용 절감 및 속도 최적화 황금 순서)
 const modelConfigs = [
   {
-    name: 'gemini-2.5-flash-lite',
-    displayName: 'gemini-2.5-flash-lite',
+    name: 'gemini-3.1-flash',
+    displayName: 'gemini-3.1-flash (메인 에이스)',
+    config: {
+      temperature: 0.7,
+      topP: 0.8,
+      topK: 15, // 문맥 파악과 자연스러운 번역을 위해 약간 낮춤
+      maxOutputTokens: 4096,
+    }
+  },
+  {
+    name: 'gemini-3.1-flash-lite-preview',
+    displayName: 'gemini-3.1-flash-lite (초고속 보조)',
     config: {
       temperature: 0.7,
       topP: 0.8,
@@ -54,17 +64,7 @@ const modelConfigs = [
   },
   {
     name: 'gemini-2.5-flash',
-    displayName: 'gemini-2.5-flash',
-    config: {
-      temperature: 0.7,
-      topP: 0.8,
-      topK: 15, // 더 빠른 응답을 위해 topK 감소
-      maxOutputTokens: 4096,
-    }
-  },
-  {
-    name: 'gemini-3.1-flash-lite-preview',
-    displayName: 'gemini-3.1-flash-lite-preview',
+    displayName: 'gemini-2.5-flash (최후의 보루)',
     config: {
       temperature: 0.7,
       topP: 0.8,
@@ -73,7 +73,6 @@ const modelConfigs = [
     }
   }
 ];
-
 const safetySettings = [
   {
     category: 'HARM_CATEGORY_HARASSMENT',
